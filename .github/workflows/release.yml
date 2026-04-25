@@ -1,0 +1,46 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: fhevm-forge-linux-x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: fhevm-forge-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: fhevm-forge-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: fhevm-forge-windows-x86_64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+      - name: Upload artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./target/${{ matrix.target }}/release/fhevm-forge
+          asset_name: ${{ matrix.artifact }}
+          asset_content_type: application/octet-stream
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
