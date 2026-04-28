@@ -4,8 +4,9 @@ use dialoguer::{Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::Path;
 use crate::scaffold::generator::Generator;
+use crate::scaffold::templates::{TEMPLATES, is_valid_template};
 
-const TEMPLATES: &[(&str, &str)] = &[
+const TEMPLATE_LABELS: &[(&str, &str)] = &[
     ("blank",   "Blank FHEVM Project (bare Foundry + forge-fhevm)"),
     ("erc7984", "Confidential ERC-7984 Token"),
     ("lending", "Confidential Lending Vault (Vault + cETH + cUSDC)"),
@@ -25,21 +26,20 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
 
     let template = match template_flag {
         Some(t) => {
-            if !TEMPLATES.iter().any(|(k, _)| *k == t) {
-                let valid: Vec<&str> = TEMPLATES.iter().map(|(k, _)| *k).collect();
-                bail!("Unknown template '{}'. Valid options: {}", t, valid.join(", "));
+            if !is_valid_template(t) {
+                bail!("Unknown template '{}'. Valid options: {}", t, TEMPLATES.join(", "));
             }
             t.to_string()
         }
         None => {
-            let labels: Vec<&str> = TEMPLATES.iter().map(|(_, l)| *l).collect();
+            let labels: Vec<&str> = TEMPLATE_LABELS.iter().map(|(_, l)| *l).collect();
             let idx = Select::with_theme(&ColorfulTheme::default())
                 .with_prompt("Choose a starting template")
                 .items(&labels)
                 .default(2)
                 .interact()
                 .context("Failed to show template selector")?;
-            TEMPLATES[idx].0.to_string()
+            TEMPLATE_LABELS[idx].0.to_string()
         }
     };
 

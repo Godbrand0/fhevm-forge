@@ -40,7 +40,9 @@ impl LintRule for MissingAllowThis {
 
                 let window_end = (i + 6).min(lines.len());
                 let window = &lines[i..window_end];
-                let has_allow_this = window.iter().any(|l| allow_this_re.is_match(l));
+                let has_allow_this = window.iter().any(|l| {
+                    !l.trim_start().starts_with("//") && allow_this_re.is_match(l)
+                });
 
                 if !has_allow_this {
                     errors.push(make_error(

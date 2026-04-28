@@ -1,6 +1,6 @@
 use anyhow::Result;
 use colored::Colorize;
-use crate::linter::{Linter, rules::Severity};
+use crate::linter::{Linter, rules::Severity, reporter};
 
 pub async fn run(path: &str, fix: bool) -> Result<()> {
     println!("\n{} {}\n", "Analyzing".cyan().bold(), path.yellow());
@@ -25,17 +25,7 @@ pub async fn run(path: &str, fix: bool) -> Result<()> {
         println!("  {}", "─".repeat(60).dimmed());
 
         for e in file_errors {
-            let severity_str = match e.severity {
-                Severity::Error   => "ERROR".red().bold(),
-                Severity::Warning => "WARN ".yellow().bold(),
-            };
-            println!(
-                "  [{}] {}  Line {:>4}  — {}",
-                e.rule_id.dimmed(),
-                severity_str,
-                e.line,
-                e.message,
-            );
+            println!("  {}", reporter::format_error(e));
             if let Some(snippet) = &e.snippet {
                 println!("              {}", snippet.dimmed());
             }
@@ -43,17 +33,7 @@ pub async fn run(path: &str, fix: bool) -> Result<()> {
         println!();
     }
 
-    let error_count   = errors.iter().filter(|e| e.severity == Severity::Error).count();
-    let warning_count = errors.iter().filter(|e| e.severity == Severity::Warning).count();
-
-    println!(
-        "{}: {} error{}, {} warning{}",
-        "Summary".bold(),
-        error_count.to_string().red(),
-        if error_count == 1 { "" } else { "s" },
-        warning_count.to_string().yellow(),
-        if warning_count == 1 { "" } else { "s" },
-    );
+    reporter::print_summary(&errors);
 
     if fix {
         println!("\n{}", "Auto-fix mode is not yet implemented for all rules.".yellow());
@@ -65,6 +45,7 @@ pub async fn run(path: &str, fix: bool) -> Result<()> {
         );
     }
 
+    let error_count = errors.iter().filter(|e| e.severity == Severity::Error).count();
     if error_count > 0 {
         std::process::exit(1);
     }

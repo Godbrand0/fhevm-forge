@@ -1,8 +1,17 @@
 use assert_cmd::Command;
 use tempfile::TempDir;
 
+fn forge_available() -> bool {
+    std::process::Command::new("forge")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 #[test]
 fn test_init_lending_template() {
+    if !forge_available() { return; }
     let tmp = TempDir::new().unwrap();
     let project_name = "test-lending";
 
@@ -26,6 +35,7 @@ fn test_init_lending_template() {
 
 #[test]
 fn test_init_blank_template() {
+    if !forge_available() { return; }
     let tmp = TempDir::new().unwrap();
 
     Command::cargo_bin("fhevm-forge")
@@ -43,6 +53,7 @@ fn test_init_blank_template() {
 
 #[test]
 fn test_init_erc7984_template() {
+    if !forge_available() { return; }
     let tmp = TempDir::new().unwrap();
 
     Command::cargo_bin("fhevm-forge")
@@ -59,6 +70,7 @@ fn test_init_erc7984_template() {
 
 #[test]
 fn test_init_auction_template() {
+    if !forge_available() { return; }
     let tmp = TempDir::new().unwrap();
 
     Command::cargo_bin("fhevm-forge")
@@ -75,6 +87,7 @@ fn test_init_auction_template() {
 
 #[test]
 fn test_init_voting_template() {
+    if !forge_available() { return; }
     let tmp = TempDir::new().unwrap();
 
     Command::cargo_bin("fhevm-forge")
@@ -116,6 +129,7 @@ fn test_init_rejects_unknown_template() {
 
 #[test]
 fn test_init_writes_foundry_toml_with_cancun() {
+    if !forge_available() { return; }
     let tmp = TempDir::new().unwrap();
 
     Command::cargo_bin("fhevm-forge")

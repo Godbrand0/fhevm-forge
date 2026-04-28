@@ -14,7 +14,7 @@ pub fn count_fhe_ops(path: &str) -> Result<HashMap<String, u64>> {
     }
 
     let op_re = Regex::new(
-        r"TFHE\.(add|sub|mul|div|lt|le|gt|ge|eq|select|and|or|not|asEuint64|asEuint128|allow|allowThis)|Gateway\.requestDecryption"
+        r"TFHE\.(add|sub|mul|div|lt|le|gt|ge|eq|select|and|or|not|asEuint64|asEuint128|allowThis|allow)|Gateway\.requestDecryption"
     )?;
 
     for entry in WalkDir::new(path)

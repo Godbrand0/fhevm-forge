@@ -1,24 +1,36 @@
-// Forge script subprocess executor.
-// The deploy command (commands/deploy.rs) calls forge directly via tokio::process::Command.
-// This module provides shared utilities for building and running forge subprocesses.
+// Forge script subprocess executor shared across commands.
 
 use anyhow::Result;
 
 pub struct ForgeRunner {
     pub rpc_url: String,
     pub verbose: bool,
+    envs:        Vec<(String, String)>,
+    extra_args:  Vec<String>,
 }
 
 impl ForgeRunner {
     pub fn new(rpc_url: &str) -> Self {
         Self {
-            rpc_url: rpc_url.to_string(),
-            verbose: false,
+            rpc_url:     rpc_url.to_string(),
+            verbose:     false,
+            envs:        Vec::new(),
+            extra_args:  Vec::new(),
         }
     }
 
     pub fn verbose(mut self, v: bool) -> Self {
         self.verbose = v;
+        self
+    }
+
+    pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
+        self.envs.push((key.into(), val.into()));
+        self
+    }
+
+    pub fn arg(mut self, arg: impl Into<String>) -> Self {
+        self.extra_args.push(arg.into());
         self
     }
 
@@ -30,8 +42,16 @@ impl ForgeRunner {
             cmd.arg("--broadcast");
         }
 
+        for arg in &self.extra_args {
+            cmd.arg(arg);
+        }
+
         if self.verbose {
             cmd.arg("-vvv");
+        }
+
+        for (k, v) in &self.envs {
+            cmd.env(k, v);
         }
 
         let output = cmd.output().await?;
