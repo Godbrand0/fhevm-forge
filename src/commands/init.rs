@@ -104,7 +104,7 @@ async fn forge_init(name: &str) -> Result<()> {
 
 async fn forge_install(project_dir: &str, dep: &str) -> Result<()> {
     let output = tokio::process::Command::new("forge")
-        .args(["install", dep, "--no-commit"])
+        .args(["install", dep, "--no-git"])
         .current_dir(project_dir)
         .output()
         .await?;

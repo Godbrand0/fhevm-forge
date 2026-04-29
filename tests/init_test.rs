@@ -26,11 +26,19 @@ fn test_init_lending_template() {
     assert!(project_dir.join("src/ConfidentialVault.sol").exists());
     assert!(project_dir.join("lib/fhevm/instance.ts").exists());
     assert!(project_dir.join("lib/fhevm/decrypt.ts").exists());
-    assert!(project_dir.join("agent/lib/fhevm-agent.ts").exists());
+    assert!(project_dir.join("lib/hooks/useEncrypt.ts").exists());
+    assert!(project_dir.join("agent/fhevm-agent.ts").exists());
     assert!(project_dir.join("AGENT.md").exists());
     assert!(project_dir.join("foundry.toml").exists());
     assert!(project_dir.join("fhevm-forge.toml").exists());
     assert!(project_dir.join(".env.example").exists());
+    assert!(project_dir.join("package.json").exists());
+    assert!(project_dir.join("tsconfig.json").exists());
+
+    // package.json uses local deps, not @fhevm-forge/sdk
+    let pkg = std::fs::read_to_string(project_dir.join("package.json")).unwrap();
+    assert!(pkg.contains("@zama-fhe/relayer-sdk"), "package.json must reference @zama-fhe/relayer-sdk");
+    assert!(!pkg.contains("@fhevm-forge/sdk"),     "package.json must not reference @fhevm-forge/sdk");
 }
 
 #[test]
@@ -48,7 +56,15 @@ fn test_init_blank_template() {
     let project_dir = tmp.path().join("test-blank");
     assert!(project_dir.join("src/Counter.sol").exists());
     assert!(project_dir.join("test/Counter.t.sol").exists());
+    assert!(project_dir.join("lib/fhevm/instance.ts").exists());
+    assert!(project_dir.join("agent/fhevm-agent.ts").exists());
     assert!(project_dir.join("AGENT.md").exists());
+    assert!(project_dir.join("package.json").exists());
+    assert!(project_dir.join("tsconfig.json").exists());
+
+    let pkg = std::fs::read_to_string(project_dir.join("package.json")).unwrap();
+    assert!(pkg.contains("@zama-fhe/relayer-sdk"));
+    assert!(!pkg.contains("@fhevm-forge/sdk"));
 }
 
 #[test]
@@ -66,6 +82,8 @@ fn test_init_erc7984_template() {
     let project_dir = tmp.path().join("test-erc7984");
     assert!(project_dir.join("src/ConfidentialToken.sol").exists());
     assert!(project_dir.join("script/Deploy.s.sol").exists());
+    assert!(project_dir.join("lib/fhevm/instance.ts").exists());
+    assert!(project_dir.join("agent/fhevm-agent.ts").exists());
 }
 
 #[test]
@@ -83,6 +101,7 @@ fn test_init_auction_template() {
     let project_dir = tmp.path().join("test-auction");
     assert!(project_dir.join("src/BlindAuction.sol").exists());
     assert!(project_dir.join("test/BlindAuction.t.sol").exists());
+    assert!(project_dir.join("lib/fhevm/instance.ts").exists());
 }
 
 #[test]
@@ -100,6 +119,7 @@ fn test_init_voting_template() {
     let project_dir = tmp.path().join("test-voting");
     assert!(project_dir.join("src/ConfidentialVoting.sol").exists());
     assert!(project_dir.join("test/ConfidentialVoting.t.sol").exists());
+    assert!(project_dir.join("lib/fhevm/instance.ts").exists());
 }
 
 #[test]

@@ -68,6 +68,14 @@ enum Commands {
         /// Auto-fix safe issues (FHEVM-001, FHEVM-003)
         #[arg(long)]
         fix: bool,
+
+        /// Comma-separated rule IDs to suppress (e.g. FHEVM-001,FHEVM-003)
+        #[arg(long, value_delimiter = ',')]
+        ignore: Vec<String>,
+
+        /// Print all available rule IDs and exit
+        #[arg(long)]
+        list_rules: bool,
     },
 
     /// Check FHEVM development environment
@@ -89,8 +97,8 @@ async fn main() -> Result<()> {
         Commands::Gas { contract, output } => {
             commands::gas::run(contract.as_deref(), &output).await
         }
-        Commands::Lint { path, fix } => {
-            commands::lint::run(&path, fix).await
+        Commands::Lint { path, fix, ignore, list_rules } => {
+            commands::lint::run(&path, fix, ignore, list_rules).await
         }
         Commands::Doctor => {
             commands::doctor::run().await

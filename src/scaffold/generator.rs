@@ -40,18 +40,16 @@ impl Generator {
         Ok(())
     }
 
-    /// Write foundry.toml, fhevm-forge.toml, .env.example, AGENT.md, README.md
+    /// Write foundry.toml, fhevm-forge.toml, .env.example, package.json,
+    /// tsconfig.json, AGENT.md, README.md
     pub fn write_config_files(&self) -> Result<()> {
-        self.write_file("foundry.toml",       &self.render_str(FOUNDRY_TOML)?)?;
-        self.write_file("fhevm-forge.toml",   FHEVM_FORGE_TOML)?;
-        self.write_file(".env.example",       ENV_EXAMPLE)?;
-        self.write_file("AGENT.md",           AGENT_MD)?;
-        self.write_file("README.md",          &self.render_str(README_MD)?)?;
-
-        // Remove default forge Counter.sol — we provide our own
-        let _ = fs::remove_file(Path::new(&self.project_dir).join("src/Counter.sol"));
-        let _ = fs::remove_file(Path::new(&self.project_dir).join("test/Counter.t.sol"));
-
+        self.write_file("foundry.toml",     &self.render_str(FOUNDRY_TOML)?)?;
+        self.write_file("fhevm-forge.toml", FHEVM_FORGE_TOML)?;
+        self.write_file(".env.example",     ENV_EXAMPLE)?;
+        self.write_file("AGENT.md",         AGENT_MD)?;
+        self.write_file("README.md",        &self.render_str(README_MD)?)?;
+        self.write_package_json()?;
+        self.write_tsconfig()?;
         Ok(())
     }
 
@@ -67,17 +65,61 @@ impl Generator {
             ("lib/hooks/useEncrypt.ts",     HOOK_ENCRYPT_TS),
             ("lib/hooks/useReencrypt.ts",   HOOK_REENCRYPT_TS),
             ("lib/hooks/useHealthCheck.ts", HOOK_HEALTH_CHECK_TS),
-            ("agent/lib/fhevm-agent.ts",    FHEVM_AGENT_TS),
-            ("tsconfig.json",               TSCONFIG_JSON),
+            ("agent/fhevm-agent.ts",        FHEVM_AGENT_TS),
         ];
 
         for (path, content) in sdk_files {
             self.write_file(path, content)?;
         }
 
-        self.write_file("package.json", &self.render_str(PACKAGE_JSON)?)?;
-
         Ok(())
+    }
+
+    fn write_package_json(&self) -> Result<()> {
+        let content = format!(
+r#"{{
+  "name": "{}",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {{
+    "typecheck": "tsc --noEmit"
+  }},
+  "dependencies": {{
+    "@zama-fhe/relayer-sdk": "^0.2.0",
+    "ethers": "^6.0.0"
+  }},
+  "devDependencies": {{
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^20.0.0"
+  }}
+}}
+"#,
+            self.project_dir
+        );
+        self.write_file("package.json", &content)
+    }
+
+    fn write_tsconfig(&self) -> Result<()> {
+        let content = r#"{
+  "compilerOptions": {
+    "target":           "ES2022",
+    "module":           "ESNext",
+    "moduleResolution": "bundler",
+    "strict":           true,
+    "esModuleInterop":  true,
+    "skipLibCheck":     true,
+    "outDir":           "dist",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["lib/**/*", "agent/**/*", "*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+"#;
+        self.write_file("tsconfig.json", content)
     }
 
     fn render_template_files(&self, files: &[(&str, &str)]) -> Result<()> {
@@ -113,10 +155,8 @@ const FHEVM_FORGE_TOML: &str = include_str!("../../templates/shared/fhevm-forge.
 const ENV_EXAMPLE:      &str = include_str!("../../templates/shared/.env.example");
 const AGENT_MD:         &str = include_str!("../../templates/shared/AGENT.md");
 const README_MD:        &str = include_str!("../../templates/shared/README.md.tera");
-const PACKAGE_JSON:     &str = include_str!("../../templates/shared/package.json.tera");
-const TSCONFIG_JSON:    &str = include_str!("../../templates/shared/tsconfig.json");
 
-// Shared TypeScript SDK files
+// Shared TypeScript SDK files (embedded into every scaffolded project)
 const FHEVM_INSTANCE_TS:    &str = include_str!("../../templates/shared/lib/fhevm/instance.ts");
 const FHEVM_ENCRYPT_TS:     &str = include_str!("../../templates/shared/lib/fhevm/encrypt.ts");
 const FHEVM_DECRYPT_TS:     &str = include_str!("../../templates/shared/lib/fhevm/decrypt.ts");

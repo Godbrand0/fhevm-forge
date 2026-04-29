@@ -8,7 +8,8 @@ pub mod reporter;
 use rules::{LintError, LintRule};
 
 pub struct Linter {
-    rules: Vec<Box<dyn LintRule>>,
+    rules:   Vec<Box<dyn LintRule>>,
+    ignored: Vec<String>,
 }
 
 impl Linter {
@@ -25,7 +26,17 @@ impl Linter {
                 Box::new(rules::HandleIndexOob),
                 Box::new(rules::ResolverArgCount),
             ],
+            ignored: Vec::new(),
         }
+    }
+
+    pub fn ignore(mut self, rule_ids: Vec<String>) -> Self {
+        self.ignored = rule_ids;
+        self
+    }
+
+    pub fn rule_ids(&self) -> Vec<&str> {
+        self.rules.iter().map(|r| r.id()).collect()
     }
 
     pub fn analyze_path(&self, base_path: &str) -> Result<Vec<LintError>> {
@@ -47,6 +58,9 @@ impl Linter {
         {
             let source = fs::read_to_string(entry.path())?;
             for rule in &self.rules {
+                if self.ignored.iter().any(|id| id == rule.id()) {
+                    continue;
+                }
                 let errors = rule.check(entry.path(), &source);
                 all_errors.extend(errors);
             }

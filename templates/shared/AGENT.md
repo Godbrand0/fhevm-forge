@@ -10,8 +10,9 @@
 
 A confidential smart contract application built on Zama FHEVM (Fully Homomorphic
 Encryption Virtual Machine). Contracts are written in Solidity using TFHE encrypted
-types. The frontend and agents use `@zama-fhe/relayer-sdk` to encrypt inputs and
-decrypt outputs without dealing with the Gateway chain directly.
+types. The frontend and agents use `@zama-fhe/relayer-sdk` (via the local helpers
+in `lib/fhevm/`) to encrypt inputs and decrypt outputs without dealing with the
+Gateway chain directly.
 
 ---
 
@@ -29,9 +30,8 @@ FHEVM has a two-chain architecture under the hood:
 - Runs the KMS (Key Management Service) via threshold MPC
 - Developers NEVER interact with this directly
 
-**The Relayer SDK** (`@zama-fhe/relayer-sdk`) abstracts the Gateway chain entirely.
-Your code only ever needs a wallet on the host chain. All Gateway interactions
-happen through HTTP via the Relayer.
+**The `lib/fhevm/` helpers** wrap `@zama-fhe/relayer-sdk` and abstract the Gateway
+chain entirely. Your code only ever needs a wallet on the host chain.
 
 ---
 
@@ -52,7 +52,7 @@ lib/hooks/
   useReencrypt.ts      React hook: reveal own encrypted values with wallet signature
   useHealthCheck.ts    React hook: full health check lifecycle (request → resolve)
 
-agent/lib/
+agent/
   fhevm-agent.ts  Headless agent runtime — no browser/MetaMask required
 
 src/
@@ -63,9 +63,6 @@ test/
 
 script/
   Deploy*.s.sol   Forge deployment scripts (reads chain config from env vars)
-
-abi/
-  *.ts            Auto-generated from forge build — never hand-edit
 ```
 
 ---
@@ -73,7 +70,7 @@ abi/
 ## SDK Entry Point — Always Use the Singleton
 
 ```typescript
-import { getFhevmInstance } from "@/lib/fhevm/instance";
+import { getFhevmInstance } from "@/lib/fhevm";
 
 // ✅ Correct — singleton, only initializes once per chain
 const fhe = await getFhevmInstance("sepolia");
@@ -90,9 +87,6 @@ If the user switches network in their wallet, call `resetFhevmInstance()` then
 
 ## Encryption
 
-Use the helpers in `lib/fhevm/encrypt.ts`. Never construct `createEncryptedInput()`
-manually in application code.
-
 ```typescript
 import { encryptUint64, encryptBatch } from "@/lib/fhevm";
 
@@ -102,8 +96,6 @@ const { handles, inputProof } = await encryptUint64(
   vaultAddress,     // contract that will receive this
   userAddress       // wallet submitting the transaction
 );
-// handles[0] is the encrypted handle — pass to the contract
-// inputProof proves the ciphertext is well-formed — pass alongside handles[0]
 
 // Multiple values — one SDK call, one inputProof covers all
 const { handles, inputProof } = await encryptBatch([
@@ -111,7 +103,6 @@ const { handles, inputProof } = await encryptBatch([
   { type: "uint64", value: borrowAmountUsdc },
 ], vaultAddress, userAddress);
 // handles[0] = collateral, handles[1] = borrow amount
-// Do NOT call encrypt twice and get two inputProofs
 ```
 
 **RULE:** The `inputProof` is bound to exactly one `contractAddress` + `userAddress` pair.
@@ -122,7 +113,6 @@ Never reuse a proof across different contracts. (Lint rule: FHEVM-005)
 ## Submitting Encrypted Transactions
 
 ```typescript
-// Pass handle as first arg, inputProof as second arg — always in this order
 const tx = await vault.borrow(
   handles[0],    // einput encryptedBorrowAmount
   inputProof,    // bytes calldata inputProof
@@ -131,20 +121,14 @@ const tx = await vault.borrow(
 await tx.wait();
 ```
 
-The Solidity contract receives `einput encryptedAmount` and `bytes calldata inputProof`,
-then calls `TFHE.asEuint64(encryptedAmount, inputProof)` to create the encrypted value.
-
 ---
 
 ## Public Decryption
 
-Public decryption is for values the CONTRACT wants to reveal globally.
-Examples: health factor check results, auction settlement prices, vote tallies.
-
 ```typescript
 import { publicDecrypt } from "@/lib/fhevm";
 
-// ✅ CORRECT — publicDecrypt lives directly on FhevmInstance (via the lib wrapper)
+// ✅ CORRECT
 const { abiEncodedClearValues, decryptionProof, clearValues } =
   await publicDecrypt([handle]);
 
@@ -152,14 +136,14 @@ const { abiEncodedClearValues, decryptionProof, clearValues } =
 const result = await fhe.getRelayer().publicDecrypt([handle]);
 ```
 
-After getting the result, the contract resolver needs **3 arguments**, not 1:
+The contract resolver needs **3 arguments**, not 1:
 
 ```typescript
-// ✅ Pass all 3 — borrower + both SDK return values (FHEVM-009 prevention)
+// ✅ Pass all 3 (FHEVM-009 prevention)
 await vault.resolveHealthCheck(
-  borrower,                     // arg 1: identifying key
-  result.abiEncodedClearValues, // arg 2: from publicDecrypt — contract verifies this
-  result.decryptionProof        // arg 3: from publicDecrypt — contract verifies this
+  borrower,
+  result.abiEncodedClearValues,
+  result.decryptionProof
 );
 
 // ❌ WRONG — contract requires 3 args, this will revert
@@ -170,65 +154,71 @@ await vault.resolveHealthCheck(borrower);
 
 ## User Reencryption
 
-Reencryption lets a wallet holder read their own encrypted value.
-Used for portfolio views, balance displays, personal position data.
-
 ```typescript
 import { reencryptBatch } from "@/lib/fhevm";
 
-// Read own collateral + debt (user must sign EIP-712 message)
 const [collateral, debt] = await reencryptBatch(
-  [collateralHandle, debtHandle], // handles from getPositionHandles()
+  [collateralHandle, debtHandle],
   vaultAddress,
   userAddress,
-  signer                          // ethers signer — prompts wallet signature
+  signer
 );
-
-// collateral is in gwei units: (Number(collateral) / 1e9).toFixed(4) + " ETH"
-// debt is in USDC units:       "$" + (Number(debt) / 1e6).toFixed(2)
 ```
 
-The plaintext never travels over the network. Only a re-encrypted ciphertext
-under an ephemeral keypair, which is decrypted locally. Users will see a
-MetaMask signature prompt — explain this in the UI.
+---
+
+## React Hooks
+
+```typescript
+import { useEncrypt }     from "@/lib/hooks/useEncrypt";
+import { useReencrypt }   from "@/lib/hooks/useReencrypt";
+import { useHealthCheck } from "@/lib/hooks/useHealthCheck";
+```
+
+---
+
+## Agent Runtime (No Browser Required)
+
+```typescript
+import { FhevmAgent } from "./agent/fhevm-agent";
+
+const agent = new FhevmAgent(
+  process.env.SEPOLIA_RPC_URL!,
+  process.env.AGENT_PRIVATE_KEY!,
+  "sepolia"
+);
+
+const { handle, inputProof } = await agent.encryptUint64(
+  currentAuctionPrice,
+  auctionContract.address
+);
+await auctionContract.connect(agent.wallet).submitBid(handle, inputProof);
+
+const { isUndercollateralized } = await agent.resolveHealthCheck(vault, borrower);
+```
 
 ---
 
 ## Contract Getter Rules
 
-**RULE: Each concern gets its own getter function. Never bundle unrelated handles.**
-
 ```solidity
-// ✅ Correct — 2 getters, each with a single responsibility
+// ✅ Correct — each concern gets its own getter
 function getPositionHandles(address borrower)
     external view returns (uint256 collateralHandle, uint256 debtHandle)
 
 function getPendingHealthHandle(address borrower)
-    external view returns (bytes32)   // 0 if no check pending
-
-function hasPendingCheck(address borrower)
-    external view returns (bool)
-
-function getLoanInfo(address borrower)
-    external view returns (bool active, uint256 openedAt)
+    external view returns (bytes32)
 
 // ❌ Wrong — bundled tuple causes off-by-one errors in TypeScript
 function getPositionHandles(address borrower)
-    external view returns (uint256, uint256, uint256) // never do this
+    external view returns (uint256, uint256, uint256)
 ```
 
-In TypeScript, always use named destructuring, never positional index access:
-
 ```typescript
-// ✅ Named destructuring — breaks at compile time if field is missing
+// ✅ Named destructuring
 const { collateralHandle, debtHandle } = await vault.getPositionHandles(borrower);
 
-// ✅ Separate calls for separate concerns
-const healthHandle = await vault.getPendingHealthHandle(borrower);
-const isPending    = await vault.hasPendingCheck(borrower);
-const { active, openedAt } = await vault.getLoanInfo(borrower);
-
-// ❌ Index access — breaks silently if getter return order changes (FHEVM-008)
+// ❌ FHEVM-008 — breaks silently if return order changes
 const handles = await vault.getPositionHandles(borrower);
 const health  = handles[2]; // always undefined — only 2 values returned
 ```
@@ -237,263 +227,110 @@ const health  = handles[2]; // always undefined — only 2 values returned
 
 ## Solidity Rules for TFHE.allow()
 
-Every `euint*` you create **must** have access explicitly granted.
-Forgetting this is the single most common silent failure in FHEVM.
-There is no revert — the handle just becomes permanently unusable.
-
 ```solidity
-// ✅ After creating or reassigning any euint — always call both
+// ✅ Always call both after creating/reassigning a euint
 euint64 amount = TFHE.asEuint64(encryptedInput, inputProof);
-TFHE.allowThis(amount);           // contract can use handle in future txs
-TFHE.allow(amount, msg.sender);   // sender can reencrypt and view it
+TFHE.allowThis(amount);
+TFHE.allow(amount, msg.sender);
 
-// ✅ When storing in a struct
-position.debt = newDebt;
-TFHE.allowThis(newDebt);          // still required even when stored in struct
-TFHE.allow(newDebt, borrower);
-
-// ✅ When passing to an external contract
-TFHE.allow(amount, address(debtToken));  // grant before calling external contract
-debtToken.mintDebt(msg.sender, amount);
-
-// ❌ Silent failure — no revert, handle is just permanently unreadable
+// ❌ Silent failure — handle is permanently unreadable
 euint64 amount = TFHE.asEuint64(encryptedInput, inputProof);
-positions[msg.sender].debt = amount;  // missing allowThis
+positions[msg.sender].debt = amount; // missing allowThis
 ```
 
 ---
 
 ## FHE Operations Cannot Be `view` or `pure`
 
-TFHE operations write to internal FHE state registers. They cannot be `view`.
-
 ```solidity
-// ❌ Will behave incorrectly — remove view
+// ❌ Wrong
 function isUndercollateralized(address b) public view returns (ebool)
 
-// ✅ Correct — no view modifier
+// ✅ Correct
 function isUndercollateralized(address b) public returns (ebool)
 ```
-
-This applies to any function calling: `TFHE.add`, `TFHE.sub`, `TFHE.mul`,
-`TFHE.div`, `TFHE.lt`, `TFHE.le`, `TFHE.gt`, `TFHE.ge`, `TFHE.eq`,
-`TFHE.select`, `TFHE.and`, `TFHE.or`, `TFHE.not`, `TFHE.asEuint*`.
 
 ---
 
 ## Gateway Callbacks — Always Use `onlyGateway`
 
-When a contract calls `Gateway.requestDecryption()`, the Zama Gateway fires a
-callback transaction 2-5 seconds later (on Sepolia testnet).
-
-The callback function **must** have the `onlyGateway` modifier. Without it,
-any address can call the function and inject fake decryption results.
-
 ```solidity
-// ✅ Protected callback
+// ✅ Protected
 function _onHealthCheckDecrypted(uint256 requestId, bool result)
-    external onlyGateway
-{
-    // This function can only be called by the Zama Gateway
-}
+    external onlyGateway { ... }
 
-// ❌ Unprotected — any address can call this with arbitrary results
+// ❌ Critical vulnerability
 function _onHealthCheckDecrypted(uint256 requestId, bool result)
-    external
-{
-    // CRITICAL VULNERABILITY — remove this function or add onlyGateway
-}
-```
-
-To use `onlyGateway`, inherit from `GatewayCallbackReceiver`:
-```solidity
-import "@zama-ai/fhevm/contracts/gateway/GatewayInterface.sol";
-contract MyContract is GatewayCallbackReceiver { ... }
+    external { ... }
 ```
 
 ---
 
-## Gas Costs — FHE Is Expensive
+## Gas Costs
 
-FHE operations cost 5-20x more than equivalent plaintext EVM operations.
-The dominant cost is the **coprocessor gas** (off-chain FHE compute), not on-chain gas.
+| Operation | On-Chain Gas | Coprocessor Gas |
+|-----------|-------------|-----------------|
+| TFHE.add/sub | 8,000 | 65,000 |
+| TFHE.mul | 15,000 | 150,000 |
+| TFHE.div | 30,000 | 400,000 |
+| TFHE.lt/le/gt/ge/eq | 10,000 | 70,000 |
+| TFHE.select | 12,000 | 90,000 |
+| TFHE.asEuint64 | 6,000 | 50,000 |
+| TFHE.allow/allowThis | 3,000 | 0 |
+| Gateway.requestDecryption | 25,000 | 200,000 |
 
-| Operation | On-Chain Gas | Coprocessor Gas | Notes |
-|-----------|-------------|-----------------|-------|
-| TFHE.add/sub | 8,000 | 65,000 | ~8x plaintext |
-| TFHE.mul | 15,000 | 150,000 | ~15x plaintext |
-| TFHE.div | 30,000 | 400,000 | Avoid in hot paths |
-| TFHE.lt/le/gt/ge/eq | 10,000 | 70,000 | Comparisons are expensive |
-| TFHE.select | 12,000 | 90,000 | FHE ternary |
-| TFHE.asEuint64 | 6,000 | 50,000 | Per encrypted input |
-| TFHE.allow/allowThis | 3,000 | 0 | Cheap — always call these |
-| Gateway.requestDecryption | 25,000 | 200,000 | Async, ~2-5 sec latency |
-
-**Optimization tips:**
-- Batch multiple TFHE operations in a single function rather than separate transactions
-- Use `encryptBatch()` instead of multiple `encryptValue()` calls — one SDK round-trip
-- Prefer `euint64` over `euint128`/`euint256` where values fit — cheaper operations
-- Cache frequently-used public values as calldata rather than re-reading from storage
-
-Run `fhevm-forge gas` to see a per-operation cost breakdown for your contracts.
-
----
-
-## Agent Runtime (No Browser Required)
-
-For monitor agents, bidder agents, and server-side scripts, use `FhevmAgent`
-from `agent/lib/fhevm-agent.ts`. It wraps the Relayer SDK for headless use.
-
-```typescript
-import { FhevmAgent } from "./lib/fhevm-agent";
-
-const agent = new FhevmAgent(
-  process.env.SEPOLIA_RPC_URL!,
-  process.env.AGENT_PRIVATE_KEY!,
-  "sepolia"
-);
-
-// Encrypt a bid price
-const { handle, inputProof } = await agent.encryptUint64(
-  currentAuctionPrice,
-  auctionContract.address
-);
-await auctionContract.connect(agent.wallet).submitBid(handle, inputProof);
-
-// Run full 3-step health check resolve (get handle → publicDecrypt → resolve with 3 args)
-const { isUndercollateralized } = await agent.resolveHealthCheck(vault, borrower);
-```
-
-Never use browser SDK patterns (window.ethereum, MetaMask prompts) in agent code.
-
----
-
-## ABI Files
-
-ABIs live in `abi/`. They are auto-generated from `forge build`.
-
-```bash
-# Regenerate after changing Solidity contracts
-forge build
-# Then run the ABI extraction script (if generated by fhevm-forge)
-pnpm run abi:generate
-```
-
-**Never hand-edit ABI files.** If a contract function is missing from the ABI:
-1. Add the function to the Solidity contract
-2. Run `forge build`
-3. Regenerate the ABI TypeScript file
-
-The ABI must include all four critical getter functions:
-- `getLoanInfo`
-- `getPositionHandles`
-- `hasPendingCheck`
-- `getPendingHealthHandle`
+Run `fhevm-forge gas` for a per-operation breakdown of your contracts.
 
 ---
 
 ## Running Tests
 
 ```bash
-# Solidity tests — runs locally with forge-fhevm mock (no Gateway needed)
 forge test
-
-# Run a specific test
 forge test --match-test test_borrow_opens_position -vvv
-
-# TypeScript type check
 pnpm typecheck
-
-# FHE gas report
 fhevm-forge gas
-
-# Static analysis
 fhevm-forge lint ./src/
 ```
-
-In Forge tests, `FHEVMTestBase.setUp()` deploys all FHEVM host contracts
-at deterministic local addresses using `setCode`/`setStorageAt`. The
-`encryptUint64(value, contractAddress, userAddress)` helper encrypts values
-for test use, and `decryptUint64(handle)` decrypts them — both only work in tests.
 
 ---
 
 ## Deploying
 
 ```bash
-# Copy .env.example to .env and fill in values
 cp .env.example .env
-
-# Deploy to Sepolia (testnet)
 fhevm-forge deploy --chains sepolia --contract ConfidentialVault
-
-# Deploy to multiple chains simultaneously
 fhevm-forge deploy --chains sepolia,base --contract ConfidentialVault
-
-# Dry run (simulate without broadcasting)
 fhevm-forge deploy --chains sepolia --contract ConfidentialVault --dry-run
 ```
-
-Deployment manifests are written to `deployments/<ContractName>.json`.
-Each chain entry includes the contract address, transaction hash, and explorer URL.
 
 ---
 
 ## Common Errors and Fixes
 
-| Error Message | Cause | Fix |
-|---------------|-------|-----|
-| `getRelayer is not a function` | Called `fhe.getRelayer()` | Use `fhe.publicDecrypt()` directly (FHEVM-007) |
-| `handles[N]` is `undefined` | Accessed index beyond getter return count | Use named destructuring; health handle is separate (FHEVM-008) |
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `getRelayer is not a function` | Called `fhe.getRelayer()` | Use `publicDecrypt()` from `@/lib/fhevm` (FHEVM-007) |
 | Contract reverts on resolve | Resolver called with 1 arg | Pass `borrower + abiEncodedClearValues + decryptionProof` (FHEVM-009) |
-| `info[5]` undefined | Assumed field at index 5 of 5-element tuple | Use named returns; `hasPendingCheck()` is a separate call |
-| State silently corrupted | Missing `TFHE.allowThis()` | Call `TFHE.allowThis()` after every `euint` assignment (FHEVM-001) |
-| External contract can't read handle | Missing `TFHE.allow()` | Call `TFHE.allow(handle, externalContract)` before passing (FHEVM-002) |
-| Function reverts unexpectedly | FHE op in `view` function | Remove `view` modifier — FHE ops modify state (FHEVM-003) |
-| Gateway callback callable by anyone | Missing `onlyGateway` | Add `onlyGateway` to all `_on*Decrypted` callbacks (FHEVM-006) |
-| `invalid handle` from SDK | Handle is 0 or uninitialized | Verify `TFHE.allowThis()` was called; check position is active |
-| `ACL not authorized` | Address not in TFHE permission set | Call `TFHE.allow(handle, address)` in contract before reading |
-| Tests fail locally but pass on Sepolia | `evm_version` not `cancun` | Set `evm_version = "cancun"` in `foundry.toml` |
-| Gateway timeout in tests | Tests using real Gateway | Use `forge test` with `FHEVMTestBase` — no real Gateway needed |
+| `handles[N]` undefined | Index beyond getter return count | Use named destructuring (FHEVM-008) |
+| State silently corrupted | Missing `TFHE.allowThis()` | Call after every `euint` assignment (FHEVM-001) |
+| External contract can't read handle | Missing `TFHE.allow()` | Call `TFHE.allow(handle, externalContract)` (FHEVM-002) |
+| Function reverts unexpectedly | FHE op in `view` function | Remove `view` modifier (FHEVM-003) |
+| Gateway callback callable by anyone | Missing `onlyGateway` | Add to all `_on*Decrypted` callbacks (FHEVM-006) |
 
 ---
 
 ## Environment Variables
 
 ```bash
-# Required for deployment
-SEPOLIA_RPC_URL=              # Alchemy/Infura Sepolia endpoint
-DEPLOYER_PRIVATE_KEY=         # Wallet deploying contracts (no 0x prefix)
-
-# Required for agent operation
-MONITOR_AGENT_PRIVATE_KEY=    # Separate key for monitor agent
-BIDDER_AGENT_PRIVATE_KEY=     # Separate key for bidder agent
-
-# Required for contract verification
-ETHERSCAN_API_KEY=            # From etherscan.io account
-
-# Optional (for multi-chain deployment)
+SEPOLIA_RPC_URL=           # Alchemy/Infura Sepolia endpoint
+DEPLOYER_PRIVATE_KEY=      # Wallet deploying contracts
+ETHERSCAN_API_KEY=         # From etherscan.io
 MAINNET_RPC_URL=
 BASE_RPC_URL=
 ARBITRUM_RPC_URL=
-BASESCAN_API_KEY=
-ARBISCAN_API_KEY=
 ```
-
-**Security:** Never commit `.env` to git. It is in `.gitignore` by default.
-Use separate private keys for deployer, monitor agent, and bidder agent.
-
----
-
-## Zama FHEVM Resources
-
-- Documentation: https://docs.zama.ai/fhevm
-- Relayer SDK: https://github.com/zama-ai/relayer-sdk
-- forge-fhevm: https://github.com/zama-ai/forge-fhevm
-- Community: https://community.zama.org
-- Discord: https://discord.gg/zama
 
 ---
 
 *Generated by fhevm-forge — Foundry scaffold for Zama FHEVM*
-*https://github.com/yourusername/fhevm-forge*

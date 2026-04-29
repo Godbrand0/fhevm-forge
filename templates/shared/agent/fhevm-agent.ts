@@ -31,45 +31,29 @@ export class FhevmAgent {
     return this.wallet.address;
   }
 
-  /** Encrypt a single uint64 value for the given contract */
-  async encryptUint64(
-    value:           bigint,
-    contractAddress: string
-  ): Promise<{ handle: Uint8Array; inputProof: Uint8Array }> {
-    const result = await encryptUint64(value, contractAddress, this.wallet.address, this.chain);
-    return { handle: result.handles[0], inputProof: result.inputProof };
+  async encryptUint64(value: bigint, contractAddress: string) {
+    const r = await encryptUint64(value, contractAddress, this.wallet.address, this.chain);
+    return { handle: r.handles[0], inputProof: r.inputProof };
   }
 
-  /** Encrypt multiple values in one SDK call (single inputProof covers all) */
   async encryptBatch(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    inputs:          Array<{ type: string; value: bigint | boolean | string }>,
+    inputs: Array<{ type: string; value: bigint | boolean | string }>,
     contractAddress: string
   ) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return encryptBatch(inputs as any, contractAddress, this.wallet.address, this.chain);
   }
 
-  /**
-   * Public decrypt — gets abiEncodedClearValues + decryptionProof for resolver.
-   * Pass BOTH return values to the contract's resolver function. (FHEVM-009)
-   */
   async publicDecrypt(handles: bigint[]) {
     return publicDecrypt(handles, this.chain);
   }
 
-  /**
-   * Full health check resolve:
-   *   1. getPendingHealthHandle(borrower)
-   *   2. publicDecrypt([handle])
-   *   3. resolveHealthCheck(borrower, abiEncoded, proof)
-   */
   async resolveHealthCheck(vault: Contract, borrower: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return resolveHealthCheck(vault as any, borrower, this.wallet, this.chain);
   }
 
-  /** Full auction bid resolve (same 3-step pattern) */
   async resolveAuctionBid(auction: Contract, auctionId: bigint, bidder: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return resolveAuctionBid(auction as any, auctionId, bidder, this.wallet, this.chain);

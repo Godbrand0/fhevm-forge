@@ -2,10 +2,19 @@ use anyhow::Result;
 use colored::Colorize;
 use crate::linter::{Linter, rules::Severity, reporter};
 
-pub async fn run(path: &str, fix: bool) -> Result<()> {
+pub async fn run(path: &str, fix: bool, ignore: Vec<String>, list_rules: bool) -> Result<()> {
+    let linter = Linter::new().ignore(ignore);
+
+    if list_rules {
+        println!("{}", "Available lint rules:".cyan().bold());
+        for id in linter.rule_ids() {
+            println!("  {}", id);
+        }
+        return Ok(());
+    }
+
     println!("\n{} {}\n", "Analyzing".cyan().bold(), path.yellow());
 
-    let linter = Linter::new();
     let errors = linter.analyze_path(path)?;
 
     if errors.is_empty() {

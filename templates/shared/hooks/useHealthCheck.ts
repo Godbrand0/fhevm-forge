@@ -16,15 +16,12 @@ export function useHealthCheck(vault: unknown, signer: unknown, chain?: ChainKey
     try {
       const v = vault as { connect: Function; requestHealthCheck: Function };
 
-      // 1. Submit on-chain health check request
       const tx = await v.connect(signer).requestHealthCheck(borrower);
       await (tx as { wait: Function }).wait();
 
-      // 2. Wait for Gateway callback (~2-5 sec on Sepolia)
       setStatus("waiting");
       await new Promise((r) => setTimeout(r, 4_000));
 
-      // 3. Resolve (3-step: get handle → publicDecrypt → resolveHealthCheck with 3 args)
       setStatus("resolving");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { isUndercollateralized } = await resolveHealthCheck(v as any, borrower, signer, chain);
