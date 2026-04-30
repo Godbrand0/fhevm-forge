@@ -65,6 +65,10 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
     forge_install(name, "zama-ai/forge-fhevm").await
         .context("forge install zama-ai/forge-fhevm failed")?;
 
+    pb.set_message("Installing forge-fhevm soldeer dependencies...");
+    soldeer_install(name).await
+        .context("forge soldeer install (inside lib/forge-fhevm) failed")?;
+
     pb.set_message("Generating contract and SDK files...");
     let generator = Generator::new(name, &template)?;
     generator.render_all().context("Template rendering failed")?;
@@ -98,6 +102,21 @@ async fn forge_init(name: &str) -> Result<()> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         bail!("forge init failed:\n{}", stderr);
+    }
+    Ok(())
+}
+
+async fn soldeer_install(project_dir: &str) -> Result<()> {
+    let forge_fhevm_dir = Path::new(project_dir).join("lib/forge-fhevm");
+    let output = tokio::process::Command::new("forge")
+        .args(["soldeer", "install"])
+        .current_dir(&forge_fhevm_dir)
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("forge soldeer install failed:\n{}", stderr);
     }
     Ok(())
 }

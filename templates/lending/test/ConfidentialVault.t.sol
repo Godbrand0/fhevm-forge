@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { Test }                   from "forge-std/Test.sol";
-import { FHEVMTestBase }          from "forge-fhevm/FHEVMTestBase.sol";
+import { FhevmTest }             from "forge-fhevm/FhevmTest.sol";
 import { ConfidentialVault }      from "../src/ConfidentialVault.sol";
 import { ConfidentialCollateral } from "../src/tokens/ConfidentialCollateral.sol";
 import { ConfidentialDebt }       from "../src/tokens/ConfidentialDebt.sol";
-import { TFHE }                   from "fhevm/lib/TFHE.sol";
+import { externalEuint64, ebool } from "encrypted-types/EncryptedTypes.sol";
 
-contract ConfidentialVaultTest is FHEVMTestBase {
+contract ConfidentialVaultTest is FhevmTest {
     ConfidentialVault      vault;
     ConfidentialCollateral collateral;
     ConfidentialDebt       debt;
@@ -31,12 +30,12 @@ contract ConfidentialVaultTest is FHEVMTestBase {
     function test_borrow_opens_position() public {
         uint64 borrowAmountUsdc = 2000_000000; // $2000
 
-        (bytes32 handle, bytes memory inputProof) =
-            encryptUint64(borrowAmountUsdc, address(vault), borrower);
+        (externalEuint64 encHandle, bytes memory inputProof) =
+            encryptUint64(borrowAmountUsdc, borrower, address(vault));
 
-        vm.prank(borrower);
         vm.deal(borrower, 1.5 ether);
-        vault.borrow{value: 1.5 ether}(einput.wrap(handle), inputProof);
+        vm.prank(borrower);
+        vault.borrow{value: 1.5 ether}(encHandle, inputProof);
 
         address[] memory positions = vault.getActivePositions();
         assertEq(positions.length, 1);
@@ -46,10 +45,9 @@ contract ConfidentialVaultTest is FHEVMTestBase {
     function test_get_position_handles_returns_exactly_two_values() public {
         test_borrow_opens_position();
 
-        (uint256 collHandle, uint256 debtHandle) = vault.getPositionHandles(borrower);
-        assertTrue(collHandle != 0, "Collateral handle should be non-zero");
-        assertTrue(debtHandle  != 0, "Debt handle should be non-zero");
-        // There is no third handle here — health handle is separate
+        (bytes32 collHandle, bytes32 debtHandle) = vault.getPositionHandles(borrower);
+        assertTrue(collHandle != bytes32(0), "Collateral handle should be non-zero");
+        assertTrue(debtHandle  != bytes32(0), "Debt handle should be non-zero");
     }
 
     function test_has_no_pending_check_initially() public {
@@ -57,13 +55,31 @@ contract ConfidentialVaultTest is FHEVMTestBase {
         assertFalse(vault.hasPendingCheck(borrower));
     }
 
-    function test_health_check_request_triggers_gateway() public {
+    function test_health_check_request_marks_handle() public {
         test_borrow_opens_position();
 
         vm.prank(agent);
-        uint256 requestId = vault.requestHealthCheck(borrower);
-        assertTrue(requestId > 0);
-        // forge-fhevm resolves Gateway callbacks synchronously in tests
+        ebool unhealthyHandle = vault.requestHealthCheck(borrower);
+        assertTrue(ebool.unwrap(unhealthyHandle) != bytes32(0));
+        assertTrue(vault.hasPendingCheck(borrower));
+    }
+
+    function test_health_check_execute_healthy_position() public {
+        test_borrow_opens_position();
+
+        vm.prank(agent);
+        ebool unhealthyHandle = vault.requestHealthCheck(borrower);
+
+        bytes32[] memory handles = new bytes32[](1);
+        handles[0] = ebool.unwrap(unhealthyHandle);
+
+        (uint256[] memory cleartexts, bytes memory proof) = publicDecrypt(handles);
+        vault.executeHealthCheck(borrower, handles, abi.encode(cleartexts), proof);
+
+        // Well-collateralized position should not be liquidated
+        (bool active, ) = vault.getLoanInfo(borrower);
+        assertTrue(active);
+        assertFalse(vault.hasPendingCheck(borrower));
     }
 
     function test_grant_agent_access() public {
@@ -71,9 +87,8 @@ contract ConfidentialVaultTest is FHEVMTestBase {
 
         vault.grantAgentAccess(borrower, agent);
 
-        // After grantAgentAccess, agent can reencrypt the position handles
-        (uint256 collHandle, ) = vault.getPositionHandles(borrower);
-        assertTrue(collHandle != 0, "Should have non-zero collateral handle");
+        (bytes32 collHandle, ) = vault.getPositionHandles(borrower);
+        assertTrue(collHandle != bytes32(0), "Should have non-zero collateral handle");
     }
 
     function test_loan_info_returns_active() public {

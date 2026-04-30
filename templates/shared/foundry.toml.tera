@@ -4,6 +4,9 @@ out         = "out"
 libs        = ["lib"]
 solc        = "0.8.27"
 evm_version = "cancun"
+remappings  = [
+    "forge-fhevm/=lib/forge-fhevm/src/",
+]
 
 [profile.default.fuzz]
 runs = 256
