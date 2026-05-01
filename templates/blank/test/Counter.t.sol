@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { Test }          from "forge-std/Test.sol";
-import { FHEVMTestBase } from "forge-fhevm/FHEVMTestBase.sol";
-import { Counter }       from "../src/Counter.sol";
+import { Test }            from "forge-std/Test.sol";
+import { FhevmTest }       from "forge-fhevm/FhevmTest.sol";
+import { Counter }         from "../src/Counter.sol";
+import { externalEuint64 } from "encrypted-types/EncryptedTypes.sol";
 
-contract CounterTest is FHEVMTestBase {
+contract CounterTest is FhevmTest {
     Counter counter;
 
     function setUp() public override {
@@ -13,32 +14,51 @@ contract CounterTest is FHEVMTestBase {
         counter = new Counter();
     }
 
-    function test_add_increases_encrypted_count() public {
+    function test_setNumber_stores_encrypted_value() public {
         address user = makeAddr("user");
-        (bytes32 handle, bytes memory proof) =
+        (externalEuint64 handle, bytes memory proof) =
+            encryptUint64(42, address(counter), user);
+
+        vm.prank(user);
+        counter.setNumber(handle, proof);
+
+        uint64 decrypted = decryptUint64(euint64.wrap(bytes32(counter.getHandle())));
+        assertEq(decrypted, 42);
+    }
+
+    function test_increment_adds_one() public {
+        address user = makeAddr("user");
+        (externalEuint64 handle, bytes memory proof) =
             encryptUint64(10, address(counter), user);
 
         vm.prank(user);
-        counter.add(einput.wrap(handle), proof);
+        counter.setNumber(handle, proof);
 
-        uint256 resultHandle = counter.getHandle();
-        // Decrypt using forge-fhevm test helper (only works in tests)
-        uint64 decrypted = decryptUint64(euint64.wrap(bytes32(resultHandle)));
-        assertEq(decrypted, 10);
-    }
-
-    function test_add_multiple_increments() public {
-        address user = makeAddr("user");
-
-        (bytes32 h1, bytes memory p1) = encryptUint64(5, address(counter), user);
-        vm.prank(user);
-        counter.add(einput.wrap(h1), p1);
-
-        (bytes32 h2, bytes memory p2) = encryptUint64(3, address(counter), user);
-        vm.prank(user);
-        counter.add(einput.wrap(h2), p2);
+        counter.increment();
 
         uint64 decrypted = decryptUint64(euint64.wrap(bytes32(counter.getHandle())));
-        assertEq(decrypted, 8);
+        assertEq(decrypted, 11);
+    }
+
+    function test_increment_from_zero() public {
+        counter.increment();
+
+        uint64 decrypted = decryptUint64(euint64.wrap(bytes32(counter.getHandle())));
+        assertEq(decrypted, 1);
+    }
+
+    function test_setNumber_overwrites_previous_value() public {
+        address user = makeAddr("user");
+
+        (externalEuint64 h1, bytes memory p1) = encryptUint64(100, address(counter), user);
+        vm.prank(user);
+        counter.setNumber(h1, p1);
+
+        (externalEuint64 h2, bytes memory p2) = encryptUint64(7, address(counter), user);
+        vm.prank(user);
+        counter.setNumber(h2, p2);
+
+        uint64 decrypted = decryptUint64(euint64.wrap(bytes32(counter.getHandle())));
+        assertEq(decrypted, 7);
     }
 }
