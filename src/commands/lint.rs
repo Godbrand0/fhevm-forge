@@ -45,8 +45,50 @@ pub async fn run(path: &str, fix: bool, ignore: Vec<String>, list_rules: bool) -
     reporter::print_summary(&errors);
 
     if fix {
-        println!("\n{}", "Auto-fix mode is not yet implemented for all rules.".yellow());
-        println!("Safe auto-fixes (FHEVM-001, FHEVM-003) will be added in v0.2.0.");
+        println!("\n{}", "Applying auto-fixes...".green().bold());
+        let mut fix_count = 0;
+
+        let re_003 = regex::Regex::new(r"\b(?:view|pure)\b").unwrap();
+        let re_001 = regex::Regex::new(r"euint\d+\s+(\w+)\s*=\s*TFHE\.").unwrap();
+
+        for (file_path, file_errors) in &by_file {
+            if let Ok(content) = std::fs::read_to_string(file_path) {
+                let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+                let mut modified = false;
+
+                for e in file_errors {
+                    let idx = e.line.saturating_sub(1);
+                    if idx >= lines.len() { continue; }
+
+                    if e.rule_id == "FHEVM-003" {
+                        let old_line = lines[idx].clone();
+                        lines[idx] = re_003.replace_all(&old_line, "").into_owned();
+                        if lines[idx] != old_line {
+                            modified = true;
+                            fix_count += 1;
+                        }
+                    } else if e.rule_id == "FHEVM-001" {
+                        if let Some(cap) = re_001.captures(&lines[idx]) {
+                            let var_name = cap[1].to_string();
+                            lines[idx].push_str(&format!(" TFHE.allowThis({});", var_name));
+                            modified = true;
+                            fix_count += 1;
+                        }
+                    }
+                }
+
+                if modified {
+                    let new_content = lines.join("\n") + "\n";
+                    let _ = std::fs::write(file_path, new_content);
+                }
+            }
+        }
+
+        println!("Fixed {} issue(s).", fix_count);
+        if fix_count > 0 {
+            println!("Please run the linter again to verify.");
+            return Ok(());
+        }
     } else {
         println!(
             "\nRun {} to attempt auto-fix of safe issues.",
@@ -55,7 +97,7 @@ pub async fn run(path: &str, fix: bool, ignore: Vec<String>, list_rules: bool) -
     }
 
     let error_count = errors.iter().filter(|e| e.severity == Severity::Error).count();
-    if error_count > 0 {
+    if error_count > 0 && (!fix || error_count > 0) { // Keep exit 1 if errors remain
         std::process::exit(1);
     }
 

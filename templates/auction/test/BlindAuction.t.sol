@@ -2,10 +2,10 @@
 pragma solidity ^0.8.27;
 
 import { Test }          from "forge-std/Test.sol";
-import { FHEVMTestBase } from "forge-fhevm/FHEVMTestBase.sol";
+import { FhevmTest }     from "forge-fhevm/FhevmTest.sol";
 import { BlindAuction }  from "../src/BlindAuction.sol";
 
-contract BlindAuctionTest is FHEVMTestBase {
+contract BlindAuctionTest is FhevmTest {
     BlindAuction auction;
 
     address seller = makeAddr("seller");
@@ -33,11 +33,11 @@ contract BlindAuctionTest is FHEVMTestBase {
         uint256 auctionId = auction.createAuction(START_PRICE, RESERVE_PRICE, DURATION);
 
         uint64 bidAmount = 750_000000; // $750
-        (bytes32 handle, bytes memory proof) =
+        (externalEuint64 handle, bytes memory proof) =
             encryptUint64(bidAmount, address(auction), bidder1);
 
         vm.prank(bidder1);
-        auction.submitBid(auctionId, einput.wrap(handle), proof);
+        auction.submitBid(auctionId, handle, proof);
 
         // Bid handle should be stored and non-zero
         uint256 storedHandle = auction.getPendingBidHandle(auctionId, bidder1);
@@ -49,14 +49,14 @@ contract BlindAuctionTest is FHEVMTestBase {
         uint256 auctionId = auction.createAuction(START_PRICE, RESERVE_PRICE, DURATION);
 
         // bidder1 bids $750
-        (bytes32 h1, bytes memory p1) = encryptUint64(750_000000, address(auction), bidder1);
+        (externalEuint64 h1, bytes memory p1) = encryptUint64(750_000000, address(auction), bidder1);
         vm.prank(bidder1);
-        auction.submitBid(auctionId, einput.wrap(h1), p1);
+        auction.submitBid(auctionId, h1, p1);
 
         // bidder2 bids $900
-        (bytes32 h2, bytes memory p2) = encryptUint64(900_000000, address(auction), bidder2);
+        (externalEuint64 h2, bytes memory p2) = encryptUint64(900_000000, address(auction), bidder2);
         vm.prank(bidder2);
-        auction.submitBid(auctionId, einput.wrap(h2), p2);
+        auction.submitBid(auctionId, h2, p2);
 
         // Both bids stored — FHE selects winner without revealing amounts
         assertTrue(auction.getPendingBidHandle(auctionId, bidder1) != 0);
@@ -70,21 +70,21 @@ contract BlindAuctionTest is FHEVMTestBase {
         vm.warp(block.timestamp + DURATION + 1);
         assertFalse(auction.isAuctionActive(auctionId));
 
-        (bytes32 handle, bytes memory proof) =
+        (externalEuint64 handle, bytes memory proof) =
             encryptUint64(750_000000, address(auction), bidder1);
 
         vm.prank(bidder1);
         vm.expectRevert("Auction ended");
-        auction.submitBid(auctionId, einput.wrap(handle), proof);
+        auction.submitBid(auctionId, handle, proof);
     }
 
     function test_settlement_request() public {
         vm.prank(seller);
         uint256 auctionId = auction.createAuction(START_PRICE, RESERVE_PRICE, DURATION);
 
-        (bytes32 h, bytes memory p) = encryptUint64(750_000000, address(auction), bidder1);
+        (externalEuint64 h, bytes memory p) = encryptUint64(750_000000, address(auction), bidder1);
         vm.prank(bidder1);
-        auction.submitBid(auctionId, einput.wrap(h), p);
+        auction.submitBid(auctionId, h, p);
 
         vm.warp(block.timestamp + DURATION + 1);
         uint256 requestId = auction.requestSettlement(auctionId);

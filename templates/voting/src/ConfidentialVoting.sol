@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TFHE }                     from "fhevm/lib/TFHE.sol";
+import { TFHE, externalEuint64 }     from "fhevm/lib/TFHE.sol";
 import { GatewayInterface }         from "fhevm/gateway/GatewayInterface.sol";
 import { SepoliaZamaFHEVMConfig }   from "fhevm/config/ZamaFHEVMConfig.sol";
 import { SepoliaZamaGatewayConfig } from "fhevm/config/ZamaGatewayConfig.sol";
@@ -84,7 +84,7 @@ contract ConfidentialVoting is
     /// @notice Cast an encrypted vote: 1 = yes, 0 = no
     function castVote(
         uint256        proposalId,
-        einput         encryptedVote,
+        externalEuint64 encryptedVote,
         bytes calldata inputProof
     ) external {
         require(registeredVoters[msg.sender], "Not a registered voter");
@@ -94,8 +94,7 @@ contract ConfidentialVoting is
         require(block.timestamp < p.endTime, "Voting period ended");
         require(!p.tallied, "Already tallied");
 
-        // Encrypt the vote — 1 = yes, 0 = no
-        euint64 vote = TFHE.asEuint64(encryptedVote, inputProof);
+        euint64 vote = TFHE.fromExternal(encryptedVote, inputProof);
         TFHE.allowThis(vote);
 
         // ebool: is this a yes vote?

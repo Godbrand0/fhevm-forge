@@ -70,7 +70,7 @@ script/
 ## SDK Entry Point — Always Use the Singleton
 
 ```typescript
-import { getFhevmInstance } from "@/lib/fhevm";
+import { getFhevmInstance } from "fhevm-forge-sdk";
 
 // ✅ Correct — singleton, only initializes once per chain
 const fhe = await getFhevmInstance("sepolia");
@@ -88,7 +88,7 @@ If the user switches network in their wallet, call `resetFhevmInstance()` then
 ## Encryption
 
 ```typescript
-import { encryptUint64, encryptBatch } from "@/lib/fhevm";
+import { encryptUint64, encryptBatch } from "fhevm-forge-sdk";
 
 // Single value
 const { handles, inputProof } = await encryptUint64(
@@ -126,7 +126,7 @@ await tx.wait();
 ## Public Decryption
 
 ```typescript
-import { publicDecrypt } from "@/lib/fhevm";
+import { publicDecrypt } from "fhevm-forge-sdk";
 
 // ✅ CORRECT
 const { abiEncodedClearValues, decryptionProof, clearValues } =
@@ -155,7 +155,7 @@ await vault.resolveHealthCheck(borrower);
 ## User Reencryption
 
 ```typescript
-import { reencryptBatch } from "@/lib/fhevm";
+import { reencryptBatch } from "fhevm-forge-sdk";
 
 const [collateral, debt] = await reencryptBatch(
   [collateralHandle, debtHandle],
@@ -170,9 +170,7 @@ const [collateral, debt] = await reencryptBatch(
 ## React Hooks
 
 ```typescript
-import { useEncrypt }     from "@/lib/hooks/useEncrypt";
-import { useReencrypt }   from "@/lib/hooks/useReencrypt";
-import { useHealthCheck } from "@/lib/hooks/useHealthCheck";
+import { useEncrypt, useReencrypt, useHealthCheck } from "fhevm-forge-sdk";
 ```
 
 ---

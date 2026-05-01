@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { Test }                from "forge-std/Test.sol";
-import { FHEVMTestBase }       from "forge-fhevm/FHEVMTestBase.sol";
-import { ConfidentialVoting }  from "../src/ConfidentialVoting.sol";
+import { Test }               from "forge-std/Test.sol";
+import { FhevmTest }          from "forge-fhevm/FhevmTest.sol";
+import { ConfidentialVoting } from "../src/ConfidentialVoting.sol";
+import { externalEuint64 }    from "encrypted-types/EncryptedTypes.sol";
 
-contract ConfidentialVotingTest is FHEVMTestBase {
+contract ConfidentialVotingTest is FhevmTest {
     ConfidentialVoting voting;
 
     address admin  = makeAddr("admin");
@@ -40,11 +41,11 @@ contract ConfidentialVotingTest is FHEVMTestBase {
         uint256 proposalId = voting.createProposal("Test proposal", DURATION);
 
         // Encrypt vote = 1 (yes)
-        (bytes32 handle, bytes memory proof) =
+        (externalEuint64 handle, bytes memory proof) =
             encryptUint64(1, address(voting), voter1);
 
         vm.prank(voter1);
-        voting.castVote(proposalId, einput.wrap(handle), proof);
+        voting.castVote(proposalId, handle, proof);
 
         assertTrue(voting.hasVoted(proposalId, voter1));
     }
@@ -53,14 +54,14 @@ contract ConfidentialVotingTest is FHEVMTestBase {
         vm.prank(admin);
         uint256 proposalId = voting.createProposal("Test proposal", DURATION);
 
-        (bytes32 h1, bytes memory p1) = encryptUint64(1, address(voting), voter1);
+        (externalEuint64 h1, bytes memory p1) = encryptUint64(1, address(voting), voter1);
         vm.prank(voter1);
-        voting.castVote(proposalId, einput.wrap(h1), p1);
+        voting.castVote(proposalId, h1, p1);
 
-        (bytes32 h2, bytes memory p2) = encryptUint64(1, address(voting), voter1);
+        (externalEuint64 h2, bytes memory p2) = encryptUint64(1, address(voting), voter1);
         vm.prank(voter1);
         vm.expectRevert("Already voted");
-        voting.castVote(proposalId, einput.wrap(h2), p2);
+        voting.castVote(proposalId, h2, p2);
     }
 
     function test_unregistered_voter_cannot_vote() public {
@@ -68,11 +69,11 @@ contract ConfidentialVotingTest is FHEVMTestBase {
         uint256 proposalId = voting.createProposal("Test proposal", DURATION);
 
         address stranger = makeAddr("stranger");
-        (bytes32 h, bytes memory p) = encryptUint64(1, address(voting), stranger);
+        (externalEuint64 h, bytes memory p) = encryptUint64(1, address(voting), stranger);
 
         vm.prank(stranger);
         vm.expectRevert("Not a registered voter");
-        voting.castVote(proposalId, einput.wrap(h), p);
+        voting.castVote(proposalId, h, p);
     }
 
     function test_tally_after_voting_ends() public {
@@ -80,14 +81,14 @@ contract ConfidentialVotingTest is FHEVMTestBase {
         uint256 proposalId = voting.createProposal("Test proposal", DURATION);
 
         // 2 yes votes, 1 no vote
-        (bytes32 h1, bytes memory p1) = encryptUint64(1, address(voting), voter1);
-        vm.prank(voter1); voting.castVote(proposalId, einput.wrap(h1), p1);
+        (externalEuint64 h1, bytes memory p1) = encryptUint64(1, address(voting), voter1);
+        vm.prank(voter1); voting.castVote(proposalId, h1, p1);
 
-        (bytes32 h2, bytes memory p2) = encryptUint64(1, address(voting), voter2);
-        vm.prank(voter2); voting.castVote(proposalId, einput.wrap(h2), p2);
+        (externalEuint64 h2, bytes memory p2) = encryptUint64(1, address(voting), voter2);
+        vm.prank(voter2); voting.castVote(proposalId, h2, p2);
 
-        (bytes32 h3, bytes memory p3) = encryptUint64(0, address(voting), voter3);
-        vm.prank(voter3); voting.castVote(proposalId, einput.wrap(h3), p3);
+        (externalEuint64 h3, bytes memory p3) = encryptUint64(0, address(voting), voter3);
+        vm.prank(voter3); voting.castVote(proposalId, h3, p3);
 
         // Advance past voting period
         vm.warp(block.timestamp + DURATION + 1);

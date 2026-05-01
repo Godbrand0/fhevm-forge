@@ -55,16 +55,6 @@ impl Generator {
 
     fn write_shared_sdk_files(&self) -> Result<()> {
         let sdk_files: &[(&str, &str)] = &[
-            ("lib/fhevm/instance.ts",       FHEVM_INSTANCE_TS),
-            ("lib/fhevm/encrypt.ts",        FHEVM_ENCRYPT_TS),
-            ("lib/fhevm/decrypt.ts",        FHEVM_DECRYPT_TS),
-            ("lib/fhevm/gateway.ts",        FHEVM_GATEWAY_TS),
-            ("lib/fhevm/errors.ts",         FHEVM_ERRORS_TS),
-            ("lib/fhevm/config.ts",         FHEVM_CONFIG_TS),
-            ("lib/fhevm/index.ts",          FHEVM_INDEX_TS),
-            ("lib/hooks/useEncrypt.ts",     HOOK_ENCRYPT_TS),
-            ("lib/hooks/useReencrypt.ts",   HOOK_REENCRYPT_TS),
-            ("lib/hooks/useHealthCheck.ts", HOOK_HEALTH_CHECK_TS),
             ("agent/fhevm-agent.ts",        FHEVM_AGENT_TS),
         ];
 
@@ -86,6 +76,7 @@ r#"{{
     "typecheck": "tsc --noEmit"
   }},
   "dependencies": {{
+    "fhevm-forge-sdk": "^0.1.0",
     "@zama-fhe/relayer-sdk": "^0.2.0",
     "ethers": "^6.0.0"
   }},
@@ -115,7 +106,7 @@ r#"{{
       "@/*": ["./*"]
     }
   },
-  "include": ["lib/**/*", "agent/**/*", "*.ts"],
+  "include": ["agent/**/*", "*.ts"],
   "exclude": ["node_modules", "dist"]
 }
 "#;
@@ -157,16 +148,6 @@ const AGENT_MD:         &str = include_str!("../../templates/shared/AGENT.md");
 const README_MD:        &str = include_str!("../../templates/shared/README.md.tera");
 
 // Shared TypeScript SDK files (embedded into every scaffolded project)
-const FHEVM_INSTANCE_TS:    &str = include_str!("../../templates/shared/lib/fhevm/instance.ts");
-const FHEVM_ENCRYPT_TS:     &str = include_str!("../../templates/shared/lib/fhevm/encrypt.ts");
-const FHEVM_DECRYPT_TS:     &str = include_str!("../../templates/shared/lib/fhevm/decrypt.ts");
-const FHEVM_GATEWAY_TS:     &str = include_str!("../../templates/shared/lib/fhevm/gateway.ts");
-const FHEVM_ERRORS_TS:      &str = include_str!("../../templates/shared/lib/fhevm/errors.ts");
-const FHEVM_CONFIG_TS:      &str = include_str!("../../templates/shared/lib/fhevm/config.ts");
-const FHEVM_INDEX_TS:       &str = include_str!("../../templates/shared/lib/fhevm/index.ts");
-const HOOK_ENCRYPT_TS:      &str = include_str!("../../templates/shared/hooks/useEncrypt.ts");
-const HOOK_REENCRYPT_TS:    &str = include_str!("../../templates/shared/hooks/useReencrypt.ts");
-const HOOK_HEALTH_CHECK_TS: &str = include_str!("../../templates/shared/hooks/useHealthCheck.ts");
 const FHEVM_AGENT_TS:       &str = include_str!("../../templates/shared/agent/fhevm-agent.ts");
 
 // Template: blank

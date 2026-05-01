@@ -5,7 +5,7 @@ import { Test }              from "forge-std/Test.sol";
 import { FHEVMTestBase }     from "forge-fhevm/FHEVMTestBase.sol";
 import { ConfidentialToken } from "../src/ConfidentialToken.sol";
 
-contract ConfidentialTokenTest is FHEVMTestBase {
+contract ConfidentialTokenTest is FhevmTest {
     ConfidentialToken token;
 
     address alice = makeAddr("alice");
@@ -36,12 +36,12 @@ contract ConfidentialTokenTest is FHEVMTestBase {
     function test_approve_and_transferFrom() public {
         // Approve alice to spend 500 tokens
         uint64 approveAmount = 500_000000;
-        (bytes32 h1, bytes memory p1) = encryptUint64(approveAmount, address(token), address(this));
+        (externalEuint32 h1, bytes memory p1) = encryptUint64(approveAmount, address(token), address(this));
         token.approve(alice, einput.wrap(h1), p1);
 
         // Alice transfersFrom on behalf of deployer → bob
         uint64 transferAmount = 200_000000;
-        (bytes32 h2, bytes memory p2) = encryptUint64(transferAmount, address(token), alice);
+        (externalEuint32 h2, bytes memory p2) = encryptUint64(transferAmount, address(token), alice);
         vm.prank(alice);
         token.transferFrom(address(this), bob, einput.wrap(h2), p2);
 

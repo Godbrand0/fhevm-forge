@@ -19,4 +19,15 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# Local dev sandboxes (scaffolded projects, SDK dir)
 my-vault/
+my-protocol/
+fhevm-forge-sdk/
+
+# Local test scaffold (dependencies fetched at dev time, not part of crate)
+/test/
+
+# Build artifacts
+files.zip
+*.zip

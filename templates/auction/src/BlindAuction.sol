@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TFHE }                     from "fhevm/lib/TFHE.sol";
-import { GatewayInterface }         from "fhevm/gateway/GatewayInterface.sol";
-import { SepoliaZamaFHEVMConfig }   from "fhevm/config/ZamaFHEVMConfig.sol";
-import { SepoliaZamaGatewayConfig } from "fhevm/config/ZamaGatewayConfig.sol";
-import { GatewayCallbackReceiver }  from "fhevm/gateway/GatewayCallbackReceiver.sol";
-import { Ownable }                  from "@openzeppelin/contracts/access/Ownable.sol";
+import { TFHE, externalEuint64 }     from "fhevm/lib/TFHE.sol";
+import { GatewayInterface }          from "fhevm/gateway/GatewayInterface.sol";
+import { SepoliaZamaFHEVMConfig }    from "fhevm/config/ZamaFHEVMConfig.sol";
+import { SepoliaZamaGatewayConfig }  from "fhevm/config/ZamaGatewayConfig.sol";
+import { GatewayCallbackReceiver }   from "fhevm/gateway/GatewayCallbackReceiver.sol";
+import { Ownable }                   from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title BlindAuction — Encrypted Dutch Auction on Zama FHEVM
@@ -90,14 +90,14 @@ contract BlindAuction is
 
     function submitBid(
         uint256        auctionId,
-        einput         encryptedBidAmount,
+        externalEuint64 encryptedBidAmount,
         bytes calldata inputProof
     ) external payable {
         Auction storage auction = auctions[auctionId];
         require(block.timestamp < auction.endTime, "Auction ended");
         require(!auction.settled, "Already settled");
 
-        euint64 bid = TFHE.asEuint64(encryptedBidAmount, inputProof);
+        euint64 bid = TFHE.fromExternal(encryptedBidAmount, inputProof);
         TFHE.allowThis(bid);
         TFHE.allow(bid, msg.sender);
 

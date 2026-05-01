@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TFHE }                   from "fhevm/lib/TFHE.sol";
+import { TFHE, externalEuint64 }   from "fhevm/lib/TFHE.sol";
 import { SepoliaZamaFHEVMConfig } from "fhevm/config/ZamaFHEVMConfig.sol";
 import { Ownable }                from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -51,10 +51,10 @@ contract ConfidentialToken is SepoliaZamaFHEVMConfig, Ownable {
     /// @notice Transfer encrypted amount to recipient
     function transfer(
         address         to,
-        einput          encryptedAmount,
+        externalEuint64 encryptedAmount,
         bytes calldata  inputProof
     ) external returns (bool) {
-        euint64 amount = TFHE.asEuint64(encryptedAmount, inputProof);
+        euint64 amount = TFHE.fromExternal(encryptedAmount, inputProof);
         TFHE.allowThis(amount);
         _transfer(msg.sender, to, amount);
         return true;
@@ -63,10 +63,10 @@ contract ConfidentialToken is SepoliaZamaFHEVMConfig, Ownable {
     /// @notice Approve spender to transfer encrypted allowance
     function approve(
         address        spender,
-        einput         encryptedAmount,
+        externalEuint64 encryptedAmount,
         bytes calldata inputProof
     ) external returns (bool) {
-        euint64 amount = TFHE.asEuint64(encryptedAmount, inputProof);
+        euint64 amount = TFHE.fromExternal(encryptedAmount, inputProof);
         TFHE.allowThis(amount);
         TFHE.allow(amount, spender);
         _allowances[msg.sender][spender] = amount;
@@ -78,10 +78,10 @@ contract ConfidentialToken is SepoliaZamaFHEVMConfig, Ownable {
     function transferFrom(
         address        from,
         address        to,
-        einput         encryptedAmount,
+        externalEuint64 encryptedAmount,
         bytes calldata inputProof
     ) external returns (bool) {
-        euint64 amount  = TFHE.asEuint64(encryptedAmount, inputProof);
+        euint64 amount  = TFHE.fromExternal(encryptedAmount, inputProof);
         TFHE.allowThis(amount);
         euint64 allowed = _allowances[from][msg.sender];
         ebool   ok      = TFHE.le(amount, allowed);

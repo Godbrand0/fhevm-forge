@@ -1,9 +1,11 @@
 import { Wallet, JsonRpcProvider, type Contract } from "ethers";
-import { getFhevmInstance }                       from "../lib/fhevm/instance";
-import { encryptUint64, encryptBatch }            from "../lib/fhevm/encrypt";
-import { publicDecrypt }                          from "../lib/fhevm/decrypt";
-import { resolveHealthCheck, resolveAuctionBid }  from "../lib/fhevm/gateway";
-import type { ChainKey }                          from "../lib/fhevm/config";
+import {
+  getFhevmInstance,
+  encryptUint64, encryptBatch,
+  publicDecrypt,
+  resolveHealthCheck, resolveAuctionBid,
+  type ChainKey
+} from "fhevm-forge-sdk";
 
 /**
  * Headless FHEVM runtime for autonomous agents.

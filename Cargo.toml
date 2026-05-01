@@ -1,6 +1,6 @@
 [package]
 name        = "fhevm-forge"
-version     = "0.1.2"
+version     = "0.1.3"
 edition     = "2021"
 description = "Foundry scaffold, deployer, gas estimator and linter for Zama FHEVM"
 license     = "MIT"
@@ -8,7 +8,7 @@ repository  = "https://github.com/Godbrand0/fhevm-forge"
 keywords    = ["fhevm", "zama", "foundry", "fhe", "blockchain"]
 categories  = ["command-line-utilities", "cryptography"]
 readme      = "README.md"
-exclude     = ["target/*", "files/*", "files.zip", ".claude/*", "*.zip", "my-vault/*"]
+exclude     = ["target/*", "files/*", "files.zip", ".claude/*", "*.zip", "my-vault/*", "my-protocol/*", "fhevm-forge-sdk/*", "test/*"]
 
 [[bin]]
 name = "fhevm-forge"
