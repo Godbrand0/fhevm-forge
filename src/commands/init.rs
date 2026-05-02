@@ -76,6 +76,9 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
     pb.set_message("Writing configuration files...");
     generator.write_config_files().context("Failed to write config files")?;
 
+    pb.set_message("Installing npm dependencies...");
+    npm_install(name).await.context("npm install failed")?;
+
     pb.finish_and_clear();
 
     println!("{}\n", "✅ Project scaffolded successfully!".green().bold());
@@ -131,6 +134,23 @@ async fn forge_install(project_dir: &str, dep: &str) -> Result<()> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         bail!("forge install {} failed:\n{}", dep, stderr);
+    }
+    Ok(())
+}
+
+async fn npm_install(project_dir: &str) -> Result<()> {
+    let output = tokio::process::Command::new("npm")
+        .args(["install"])
+        .current_dir(project_dir)
+        .output()
+        .await
+        .context(
+            "Could not find 'npm'. Install Node.js: https://nodejs.org"
+        )?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("npm install failed:\n{}", stderr);
     }
     Ok(())
 }

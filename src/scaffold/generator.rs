@@ -54,14 +54,6 @@ impl Generator {
     }
 
     fn write_shared_sdk_files(&self) -> Result<()> {
-        let sdk_files: &[(&str, &str)] = &[
-            ("agent/fhevm-agent.ts",        FHEVM_AGENT_TS),
-        ];
-
-        for (path, content) in sdk_files {
-            self.write_file(path, content)?;
-        }
-
         Ok(())
     }
 
@@ -77,7 +69,6 @@ r#"{{
   }},
   "dependencies": {{
     "fhevm-forge-sdk": "^0.1.0",
-    "@zama-fhe/relayer-sdk": "^0.2.0",
     "ethers": "^6.0.0"
   }},
   "devDependencies": {{
@@ -106,7 +97,7 @@ r#"{{
       "@/*": ["./*"]
     }
   },
-  "include": ["agent/**/*", "*.ts"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
 "#;
@@ -146,9 +137,6 @@ const FHEVM_FORGE_TOML: &str = include_str!("../../templates/shared/fhevm-forge.
 const ENV_EXAMPLE:      &str = include_str!("../../templates/shared/.env.example");
 const AGENT_MD:         &str = include_str!("../../templates/shared/AGENT.md");
 const README_MD:        &str = include_str!("../../templates/shared/README.md.tera");
-
-// Shared TypeScript SDK files (embedded into every scaffolded project)
-const FHEVM_AGENT_TS:       &str = include_str!("../../templates/shared/agent/fhevm-agent.ts");
 
 // Template: blank
 const BLANK_FILES: &[(&str, &str)] = &[

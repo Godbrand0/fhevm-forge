@@ -67,10 +67,86 @@ script/
 
 ---
 
+## Blank Template — Counter Contract Shape
+
+The blank template scaffolds a `Counter` contract that mirrors the familiar
+`setNumber` / `increment` interface but stores the value as an encrypted `euint64`.
+This is the canonical starting point for new FHEVM contracts.
+
+```solidity
+import { TFHE, externalEuint64 } from "fhevm/lib/TFHE.sol";
+import { SepoliaZamaFHEVMConfig }  from "fhevm/config/ZamaFHEVMConfig.sol";
+
+contract Counter is SepoliaZamaFHEVMConfig {
+    euint64 private _number;
+
+    constructor() {
+        _number = TFHE.asEuint64(0);
+        TFHE.allowThis(_number);
+    }
+
+    // Replaces the cleartext value with a new encrypted value
+    function setNumber(externalEuint64 encryptedNumber, bytes calldata inputProof) external {
+        euint64 newNumber = TFHE.fromExternal(encryptedNumber, inputProof);
+        TFHE.allowThis(newNumber);
+        _number = newNumber;
+        TFHE.allowThis(_number);
+        TFHE.allow(_number, msg.sender);  // caller can reencrypt
+    }
+
+    // Increments by the public constant 1 — no proof required
+    function increment() external {
+        _number = TFHE.add(_number, TFHE.asEuint64(1));
+        TFHE.allowThis(_number);
+    }
+
+    // Returns an opaque handle — decrypt off-chain with fhevmjs.reencrypt()
+    function getHandle() external view returns (uint256) {
+        return euint64.unwrap(_number);
+    }
+}
+```
+
+### Key differences from raw TFHE usage
+
+| Pattern | Old API | New API (blank template) |
+|---------|---------|--------------------------|
+| Accept encrypted input | `TFHE.asEuint64(einput, proof)` | `TFHE.fromExternal(externalEuint64, proof)` |
+| Solidity input type | `einput` | `externalEuint64` |
+
+`externalEuint64` is a strongly-typed wrapper introduced in fhevm-solidity v0.6+.
+Always prefer `TFHE.fromExternal` over `TFHE.asEuint64(einput, proof)` in new contracts.
+
+### Calling from TypeScript
+
+```typescript
+import { encryptUint64, reencryptBatch } from "@/lib/fhevm";
+
+// Encrypt the new value client-side
+const { handles, inputProof } = await encryptUint64(
+  42n,
+  counterAddress,   // contract that will receive this
+  userAddress
+);
+
+// setNumber — replace the stored encrypted value
+await counter.setNumber(handles[0], inputProof);
+
+// increment — no encryption needed, 1 is public
+await counter.increment();
+
+// Read the current value back (off-chain reencryption)
+const handle = await counter.getHandle();
+const [value] = await reencryptBatch([handle], counterAddress, userAddress, signer);
+console.log("counter value:", value); // plaintext BigInt
+```
+
+---
+
 ## SDK Entry Point — Always Use the Singleton
 
 ```typescript
-import { getFhevmInstance } from "fhevm-forge-sdk";
+import { getFhevmInstance } from "@/lib/fhevm";
 
 // ✅ Correct — singleton, only initializes once per chain
 const fhe = await getFhevmInstance("sepolia");
@@ -88,7 +164,7 @@ If the user switches network in their wallet, call `resetFhevmInstance()` then
 ## Encryption
 
 ```typescript
-import { encryptUint64, encryptBatch } from "fhevm-forge-sdk";
+import { encryptUint64, encryptBatch } from "@/lib/fhevm";
 
 // Single value
 const { handles, inputProof } = await encryptUint64(
@@ -126,7 +202,7 @@ await tx.wait();
 ## Public Decryption
 
 ```typescript
-import { publicDecrypt } from "fhevm-forge-sdk";
+import { publicDecrypt } from "@/lib/fhevm";
 
 // ✅ CORRECT
 const { abiEncodedClearValues, decryptionProof, clearValues } =
@@ -155,7 +231,7 @@ await vault.resolveHealthCheck(borrower);
 ## User Reencryption
 
 ```typescript
-import { reencryptBatch } from "fhevm-forge-sdk";
+import { reencryptBatch } from "@/lib/fhevm";
 
 const [collateral, debt] = await reencryptBatch(
   [collateralHandle, debtHandle],
@@ -170,7 +246,7 @@ const [collateral, debt] = await reencryptBatch(
 ## React Hooks
 
 ```typescript
-import { useEncrypt, useReencrypt, useHealthCheck } from "fhevm-forge-sdk";
+import { useEncrypt, useReencrypt, useHealthCheck } from "@/lib/hooks";
 ```
 
 ---
