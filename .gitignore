@@ -21,7 +21,7 @@
 Thumbs.db
 
 # Local dev sandboxes (scaffolded projects, SDK dir)
-my-vault/
+
 my-protocol/
 my-project/
 my/

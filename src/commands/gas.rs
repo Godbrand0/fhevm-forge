@@ -1,6 +1,6 @@
 use anyhow::Result;
 use colored::Colorize;
-use crate::gas::{costs::fhe_cost_table, parser::{count_fhe_ops, extract_gas_table}, reporter};
+use crate::gas::{costs::fhe_cost, parser::{count_fhe_ops, extract_gas_table}, reporter, FheType};
 use crate::config::FhevmForgeConfig;
 
 pub async fn run(contract: Option<&str>, output_format: &str) -> Result<()> {
@@ -24,17 +24,17 @@ pub async fn run(contract: Option<&str>, output_format: &str) -> Result<()> {
     };
 
     let op_counts = count_fhe_ops("./src")?;
-    let costs = fhe_cost_table();
 
     match output_format {
-        "json"     => reporter::json(&op_counts, &costs)?,
-        "markdown" => reporter::markdown(&op_counts, &costs),
-        _          => reporter::terminal(&op_counts, &costs),
+        "json"     => reporter::json(&op_counts)?,
+        "markdown" => reporter::markdown(&op_counts),
+        _          => reporter::terminal(&op_counts),
     }
 
     if let Some(threshold) = cfg.gas.warn_if_coprocessor_gas_exceeds {
-        let total_cop: u64 = op_counts.iter()
-            .filter_map(|(op, &count)| costs.get(op.as_str()).map(|&(_, cop)| cop * count))
+        let total_cop: u64 = op_counts
+            .iter()
+            .map(|((op, ty), &count)| fhe_cost(op, *ty).1 * count)
             .sum();
         if total_cop > threshold {
             println!(
