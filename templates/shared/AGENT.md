@@ -101,7 +101,7 @@ contract Counter is SepoliaZamaFHEVMConfig {
     }
 
     // Returns an opaque handle — decrypt off-chain with fhevmjs.reencrypt()
-    function getHandle() external view returns (uint256) {
+    function getHandle() external view returns (bytes32) {
         return euint64.unwrap(_number);
     }
 }
@@ -136,7 +136,9 @@ await counter.setNumber(handles[0], inputProof);
 await counter.increment();
 
 // Read the current value back (off-chain reencryption)
-const handle = await counter.getHandle();
+// getHandle() returns bytes32 — convert to bigint for the SDK
+const handleBytes32 = await counter.getHandle();
+const handle = BigInt(handleBytes32);
 const [value] = await reencryptBatch([handle], counterAddress, userAddress, signer);
 console.log("counter value:", value); // plaintext BigInt
 ```
