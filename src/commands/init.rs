@@ -6,6 +6,10 @@ use std::{fs, path::Path};
 use crate::scaffold::generator::Generator;
 use crate::scaffold::templates::{TEMPLATES, is_valid_template};
 
+/// Pinned forge-fhevm release. Update this when upgrading forge-fhevm, and
+/// re-verify that `patch_forge_fhevm_foundry_toml` still removes the right deps.
+const FORGE_FHEVM_VERSION: &str = "v0.2.0";
+
 const TEMPLATE_LABELS: &[(&str, &str)] = &[
     ("blank",   "Blank FHEVM Project (bare Foundry + forge-fhevm)"),
     ("erc7984", "Confidential ERC-7984 Token"),
@@ -72,7 +76,8 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
     pb.set_message("Installing dependencies (forge + npm in parallel)...");
     let name_clone = name.to_string();
     let forge_chain = async {
-        forge_install(&name_clone, "zama-ai/forge-fhevm").await
+        let dep = format!("zama-ai/forge-fhevm@{}", FORGE_FHEVM_VERSION);
+        forge_install(&name_clone, &dep).await
             .context("forge install zama-ai/forge-fhevm failed")?;
         // Remove the @openzeppelin-confidential-contracts git dep from forge-fhevm's
         // foundry.toml before soldeer runs. That package is a full repo clone (~198 MB)
@@ -106,9 +111,24 @@ fn patch_forge_fhevm_foundry_toml(project_dir: &str) -> Result<()> {
     let toml_path = Path::new(project_dir).join("lib/forge-fhevm/foundry.toml");
     let content = fs::read_to_string(&toml_path)
         .context("could not read lib/forge-fhevm/foundry.toml")?;
+
+    // Verify the expected dep is present before patching. If it's missing,
+    // forge-fhevm probably changed its dependencies and FORGE_FHEVM_VERSION
+    // needs to be re-evaluated.
+    if !content.contains("@openzeppelin-confidential-contracts") {
+        bail!(
+            "lib/forge-fhevm/foundry.toml no longer contains \
+             @openzeppelin-confidential-contracts — forge-fhevm {} may have \
+             changed its dependencies. Update FORGE_FHEVM_VERSION in init.rs \
+             and re-verify the soldeer patch.",
+            FORGE_FHEVM_VERSION
+        );
+    }
+
     let patched: String = content
         .lines()
         .filter(|line| !line.contains("@openzeppelin-confidential-contracts"))
+        .filter(|line| !line.trim().starts_with("forge-std"))
         .collect::<Vec<_>>()
         .join("\n");
     let patched = if content.ends_with('\n') { patched + "\n" } else { patched };

@@ -1,6 +1,6 @@
 [package]
 name        = "fhevm-forge"
-version     = "0.1.9"
+version     = "0.2.0"
 edition     = "2021"
 description = "Foundry scaffold, deployer, gas estimator and linter for Zama FHEVM"
 license     = "MIT"

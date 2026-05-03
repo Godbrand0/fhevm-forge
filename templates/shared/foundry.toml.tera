@@ -6,6 +6,7 @@ solc        = "0.8.27"
 evm_version = "cancun"
 remappings  = [
     "forge-fhevm/=lib/forge-fhevm/src/",
+    "forge-std/=lib/forge-std/src/",
     "fhevm/=lib/forge-fhevm/dependencies/@fhevm-solidity-0.11.1/",
 ]
 
