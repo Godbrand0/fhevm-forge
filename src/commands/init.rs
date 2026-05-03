@@ -61,23 +61,23 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
     pb.set_message("Running forge init...");
     forge_init(name).await.context("forge init failed")?;
 
-    pb.set_message("Installing zama-ai/forge-fhevm...");
-    forge_install(name, "zama-ai/forge-fhevm").await
-        .context("forge install zama-ai/forge-fhevm failed")?;
-
-    pb.set_message("Installing forge-fhevm soldeer dependencies...");
-    soldeer_install(name).await
-        .context("forge soldeer install (inside lib/forge-fhevm) failed")?;
-
+    // Write all local files immediately (no network, fast)
     pb.set_message("Generating contract and SDK files...");
     let generator = Generator::new(name, &template)?;
     generator.render_all().context("Template rendering failed")?;
-
-    pb.set_message("Writing configuration files...");
     generator.write_config_files().context("Failed to write config files")?;
 
-    pb.set_message("Installing npm dependencies...");
-    npm_install(name).await.context("npm install failed")?;
+    // forge install → soldeer install and npm install have no dependency on each other,
+    // so run both chains concurrently.
+    pb.set_message("Installing dependencies (forge + npm in parallel)...");
+    let name_clone = name.to_string();
+    let forge_chain = async {
+        forge_install(&name_clone, "zama-ai/forge-fhevm").await
+            .context("forge install zama-ai/forge-fhevm failed")?;
+        soldeer_install(&name_clone).await
+            .context("forge soldeer install (inside lib/forge-fhevm) failed")
+    };
+    tokio::try_join!(forge_chain, npm_install(name))?;
 
     pb.finish_and_clear();
 
@@ -140,7 +140,7 @@ async fn forge_install(project_dir: &str, dep: &str) -> Result<()> {
 
 async fn npm_install(project_dir: &str) -> Result<()> {
     let output = tokio::process::Command::new("npm")
-        .args(["install"])
+        .args(["install", "--no-audit", "--no-fund"])
         .current_dir(project_dir)
         .output()
         .await
