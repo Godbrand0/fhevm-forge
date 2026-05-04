@@ -6,9 +6,7 @@ use std::{fs, path::Path};
 use crate::scaffold::generator::Generator;
 use crate::scaffold::templates::{TEMPLATES, is_valid_template};
 
-/// Pinned forge-fhevm release. Update this when upgrading forge-fhevm, and
-/// re-verify that `patch_forge_fhevm_foundry_toml` still removes the right deps.
-const FORGE_FHEVM_VERSION: &str = "v0.2.0";
+const FORGE_FHEVM_DEP: &str = "zama-ai/forge-fhevm";
 
 const TEMPLATE_LABELS: &[(&str, &str)] = &[
     ("blank",   "Blank FHEVM Project (bare Foundry + forge-fhevm)"),
@@ -76,8 +74,7 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
     pb.set_message("Installing dependencies (forge + npm in parallel)...");
     let name_clone = name.to_string();
     let forge_chain = async {
-        let dep = format!("zama-ai/forge-fhevm@{}", FORGE_FHEVM_VERSION);
-        forge_install(&name_clone, &dep).await
+        forge_install(&name_clone, FORGE_FHEVM_DEP).await
             .context("forge install zama-ai/forge-fhevm failed")?;
         // Remove the @openzeppelin-confidential-contracts git dep from forge-fhevm's
         // foundry.toml before soldeer runs. That package is a full repo clone (~198 MB)
@@ -118,10 +115,8 @@ fn patch_forge_fhevm_foundry_toml(project_dir: &str) -> Result<()> {
     if !content.contains("@openzeppelin-confidential-contracts") {
         bail!(
             "lib/forge-fhevm/foundry.toml no longer contains \
-             @openzeppelin-confidential-contracts — forge-fhevm {} may have \
-             changed its dependencies. Update FORGE_FHEVM_VERSION in init.rs \
-             and re-verify the soldeer patch.",
-            FORGE_FHEVM_VERSION
+             @openzeppelin-confidential-contracts — forge-fhevm may have \
+             changed its dependencies. Re-verify the soldeer patch in init.rs."
         );
     }
 
