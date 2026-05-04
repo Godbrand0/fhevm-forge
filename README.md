@@ -45,9 +45,6 @@ foundryup
 fhevm-forge init my-vault --template lending
 cd my-vault
 
-# Install dependencies
-pnpm install
-
 # Run tests (uses forge-fhevm local mock — no Gateway needed)
 forge test
 
@@ -93,22 +90,11 @@ my-project/
 ├── script/                     Deployment scripts
 ├── lib/
 │   ├── forge-std/              Foundry standard library
-│   ├── forge-fhevm/            Zama FHE mock for local testing
-│   └── fhevm/
-│       ├── instance.ts         Singleton FhevmInstance management
-│       ├── encrypt.ts          Encryption helpers (uint8–uint128, bool, address, batch)
-│       ├── decrypt.ts          publicDecrypt + reencrypt + reencryptBatch
-│       ├── gateway.ts          Gateway callback resolution helpers
-│       ├── errors.ts           Actionable FHE error messages
-│       ├── config.ts           Chain configs (Sepolia, mainnet, Base, Arbitrum)
-│       └── index.ts            Re-exports everything
-├── lib/hooks/                  React hooks (useEncrypt, useReencrypt, useHealthCheck)
-├── agent/
-│   └── fhevm-agent.ts          Headless agent runtime (no browser/MetaMask needed)
+│   └── forge-fhevm/            Zama FHE mock for local testing
 ├── AGENT.md                    FHEVM development guide for AI coding agents
 ├── foundry.toml
 ├── fhevm-forge.toml
-├── package.json
+├── package.json                fhevm-forge-sdk + ethers
 └── tsconfig.json
 ```
 
@@ -192,7 +178,7 @@ ARBITRUM_RPC_URL=
 
 - Rust 1.70+
 - [Foundry](https://getfoundry.sh) (for `init` and `deploy`)
-- Node.js + pnpm (for TypeScript SDK in scaffolded projects)
+- Node.js (for TypeScript SDK in scaffolded projects)
 
 ---
 
