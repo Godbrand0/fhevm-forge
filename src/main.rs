@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
+use colored::Colorize;
 
 mod commands;
 mod scaffold;
@@ -7,6 +8,7 @@ mod deployer;
 mod gas;
 mod linter;
 mod config;
+mod update;
 
 #[derive(Parser)]
 #[command(
@@ -86,7 +88,10 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
+    // Kick off version check concurrently — it won't block the command.
+    let update_task = tokio::spawn(update::check());
+
+    let result = match cli.command {
         Commands::Init { name, template } => {
             commands::init::run(&name, template.as_deref()).await
         }
@@ -103,5 +108,18 @@ async fn main() -> Result<()> {
         Commands::Doctor => {
             commands::doctor::run().await
         }
+    };
+
+    // Print update nudge after the command so it doesn't interrupt output.
+    if let Ok(Some(latest)) = update_task.await {
+        eprintln!(
+            "\n  {} {} → {}  run: {}",
+            "Update available:".yellow().bold(),
+            env!("CARGO_PKG_VERSION").dimmed(),
+            latest.green().bold(),
+            "cargo install fhevm-forge".cyan()
+        );
     }
+
+    result
 }
