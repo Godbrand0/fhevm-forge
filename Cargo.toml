@@ -1,6 +1,6 @@
 [package]
 name        = "fhevm-forge"
-version     = "0.2.2"
+version     = "0.2.3"
 edition     = "2021"
 description = "Foundry scaffold, deployer, gas estimator and linter for Zama FHEVM"
 license     = "MIT"
@@ -46,8 +46,11 @@ toml        = "0.8"
 anyhow      = "1"
 thiserror   = "1"
 
-# HTTP (doctor command)
+# HTTP (doctor command + dependency downloads)
 reqwest     = { version = "0.13", features = ["json"] }
+
+# Zip extraction (fhevm-solidity soldeer workaround)
+zip         = { version = "2", default-features = false, features = ["deflate"] }
 
 # Regex (linter pattern matching)
 regex       = "1"

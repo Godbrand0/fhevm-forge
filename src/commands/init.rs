@@ -2,11 +2,18 @@ use anyhow::{Context, Result, bail};
 use colored::Colorize;
 use dialoguer::{Select, theme::ColorfulTheme};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 use crate::scaffold::generator::Generator;
 use crate::scaffold::templates::{TEMPLATES, is_valid_template};
 
 const FORGE_FHEVM_DEP: &str = "zama-ai/forge-fhevm";
+
+// soldeer's HTTP client (reqwest compiled inside forge) fails to send requests
+// for S3 URLs whose filename contains colons (e.g. "15:50:59" timestamps).
+// We download and extract this package ourselves so soldeer never sees it.
+const FHEVM_SOLIDITY_URL: &str =
+    "https://soldeer-revisions.s3.amazonaws.com/@fhevm-solidity/0_11_1_23-03-2026_15:50:59_library-solidity.zip";
+const FHEVM_SOLIDITY_DIR: &str = "@fhevm-solidity-0.11.1";
 
 const TEMPLATE_LABELS: &[(&str, &str)] = &[
     ("blank",   "Blank FHEVM Project (bare Foundry + forge-fhevm)"),
@@ -16,7 +23,7 @@ const TEMPLATE_LABELS: &[(&str, &str)] = &[
     ("voting",  "Confidential Voting System"),
 ];
 
-pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
+pub async fn run(name: &str, template_flag: Option<&str>, frontend: bool) -> Result<()> {
     if name.is_empty() {
         bail!("Project name cannot be empty");
     }
@@ -65,7 +72,7 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
 
     // Write all local files immediately — no network, instant.
     pb.set_message("Generating contract and SDK files...");
-    let generator = Generator::new(name, &template)?;
+    let generator = Generator::new(name, &template, frontend)?;
     generator.render_all().context("Template rendering failed")?;
     generator.write_config_files().context("Failed to write config files")?;
 
@@ -83,6 +90,8 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
             .context("failed to patch lib/forge-fhevm/foundry.toml")?;
         create_oz_confidential_stubs(&name_clone)
             .context("failed to write OZ confidential interface stubs")?;
+        download_fhevm_solidity(&name_clone).await
+            .context("failed to download @fhevm-solidity")?;
         soldeer_install(&name_clone).await
             .context("forge soldeer install (inside lib/forge-fhevm) failed")
     };
@@ -96,6 +105,10 @@ pub async fn run(name: &str, template_flag: Option<&str>) -> Result<()> {
     println!("  {}      # Estimate FHE gas costs", "fhevm-forge gas".cyan());
     println!("  {}     # Check for TFHE.allow() bugs", "fhevm-forge lint".cyan());
     println!("  {} --chains sepolia  # Deploy to testnet", "fhevm-forge deploy".cyan());
+    if frontend {
+        println!("\n  {} {}  # Start the Next.js frontend", "cd".dimmed(), format!("{}/frontend && npm install && npm run dev", name).cyan());
+        println!("  {}  {}", "→".dimmed(), "Update frontend/app/contract.ts with your deployed address".dimmed());
+    }
     println!("\n  Read {} for FHEVM development guidelines.", "AGENT.md".yellow());
 
     Ok(())
@@ -124,11 +137,59 @@ fn patch_forge_fhevm_foundry_toml(project_dir: &str) -> Result<()> {
         .lines()
         .filter(|line| !line.contains("@openzeppelin-confidential-contracts"))
         .filter(|line| !line.trim().starts_with("forge-std"))
+        // soldeer's HTTP client can't handle S3 URLs with colons in the filename;
+        // we download this package ourselves in download_fhevm_solidity().
+        .filter(|line| !line.contains("@fhevm-solidity"))
         .collect::<Vec<_>>()
         .join("\n");
     let patched = if content.ends_with('\n') { patched + "\n" } else { patched };
     fs::write(&toml_path, patched)
         .context("could not write patched lib/forge-fhevm/foundry.toml")?;
+    Ok(())
+}
+
+/// Download and extract @fhevm-solidity directly, bypassing soldeer's HTTP client
+/// which fails on S3 URLs that contain colons in the filename.
+async fn download_fhevm_solidity(project_dir: &str) -> Result<()> {
+    let dest = Path::new(project_dir)
+        .join("lib/forge-fhevm/dependencies")
+        .join(FHEVM_SOLIDITY_DIR);
+
+    if dest.exists() {
+        return Ok(());
+    }
+
+    let bytes = reqwest::get(FHEVM_SOLIDITY_URL)
+        .await
+        .context("failed to download @fhevm-solidity")?
+        .error_for_status()
+        .context("@fhevm-solidity download returned an error status")?
+        .bytes()
+        .await
+        .context("failed to read @fhevm-solidity response bytes")?;
+
+    fs::create_dir_all(&dest)
+        .context("could not create @fhevm-solidity-0.11.1 directory")?;
+
+    let cursor = io::Cursor::new(bytes);
+    let mut archive = zip::ZipArchive::new(cursor)
+        .context("@fhevm-solidity zip is invalid")?;
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i)?;
+        let out_path = dest.join(entry.name());
+        if entry.is_dir() {
+            fs::create_dir_all(&out_path)?;
+        } else {
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut out_file = fs::File::create(&out_path)
+                .with_context(|| format!("could not create {}", out_path.display()))?;
+            io::copy(&mut entry, &mut out_file)?;
+        }
+    }
+
     Ok(())
 }
 
@@ -156,7 +217,7 @@ const IERC7984_STUB: &str = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import {euint64, externalEuint64} from "@fhevm/solidity/lib/FHE.sol";
-import {IERC165} from "@openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
 
 interface IERC7984 is IERC165 {
     event OperatorSet(address indexed holder, address indexed operator, uint48 until);

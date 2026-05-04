@@ -33,6 +33,12 @@ enum Commands {
         /// Options: blank | erc7984 | lending | auction | voting
         #[arg(short, long)]
         template: Option<String>,
+
+        /// Also scaffold a Next.js frontend in <name>/frontend/
+        /// Pre-wired with wagmi, @zama-fhe/relayer-sdk, and ready-to-use
+        /// useEncrypt / useReencrypt hooks for the chosen contract
+        #[arg(long)]
+        frontend: bool,
     },
 
     /// Deploy contracts to one or more chains
@@ -92,8 +98,8 @@ async fn main() -> Result<()> {
     let update_task = tokio::spawn(update::check());
 
     let result = match cli.command {
-        Commands::Init { name, template } => {
-            commands::init::run(&name, template.as_deref()).await
+        Commands::Init { name, template, frontend } => {
+            commands::init::run(&name, template.as_deref(), frontend).await
         }
         Commands::Deploy { chains, contract, dry_run } => {
             let chain_list: Vec<&str> = chains.split(',').map(str::trim).collect();

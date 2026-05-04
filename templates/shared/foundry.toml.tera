@@ -8,6 +8,8 @@ remappings  = [
     "forge-fhevm/=lib/forge-fhevm/src/",
     "forge-std/=lib/forge-std/src/",
     "fhevm/=lib/forge-fhevm/dependencies/@fhevm-solidity-0.11.1/",
+    "@openzeppelin/contracts/=lib/forge-fhevm/dependencies/@openzeppelin-contracts-5.1.0/",
+    "@openzeppelin/contracts-upgradeable/=lib/forge-fhevm/dependencies/@openzeppelin-contracts-upgradeable-5.1.0/",
 ]
 
 [profile.default.fuzz]
