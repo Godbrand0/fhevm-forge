@@ -1,6 +1,6 @@
 use anyhow::Result;
 use colored::Colorize;
-use crate::gas::{costs::fhe_cost, parser::{count_fhe_ops, extract_gas_table}, reporter, FheType};
+use crate::gas::{costs::fhe_cost, parser::{count_fhe_ops, extract_gas_table}, reporter};
 use crate::config::FhevmForgeConfig;
 
 pub async fn run(contract: Option<&str>, output_format: &str) -> Result<()> {
