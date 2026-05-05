@@ -4,10 +4,6 @@
 
 pub const TEMPLATES: &[&str] = &[
     "blank",
-    "erc7984",
-    "lending",
-    "auction",
-    "voting",
 ];
 
 pub fn is_valid_template(name: &str) -> bool {

@@ -28,14 +28,11 @@ impl Generator {
 
     /// Render and write all files for the chosen template.
     pub fn render_all(&self) -> Result<()> {
-        self.write_shared_sdk_files()?;
+        self.write_sdk_files()?;
+        self.write_agent_files()?;
 
         match self.template.as_str() {
             "blank"   => self.render_template_files(BLANK_FILES)?,
-            "erc7984" => self.render_template_files(ERC7984_FILES)?,
-            "lending" => self.render_template_files(LENDING_FILES)?,
-            "auction" => self.render_template_files(AUCTION_FILES)?,
-            "voting"  => self.render_template_files(VOTING_FILES)?,
             other     => anyhow::bail!("Unknown template: {}", other),
         }
 
@@ -61,17 +58,24 @@ impl Generator {
 
     // ── Shared SDK files (lib/fhevm/ + hooks/) ──────────────────────────────
 
-    fn write_shared_sdk_files(&self) -> Result<()> {
-        // lib/fhevm/
-        self.write_file("lib/fhevm/instance.ts", FHEVM_INSTANCE)?;
-        self.write_file("lib/fhevm/config.ts",   FHEVM_CONFIG)?;
-        self.write_file("lib/fhevm/errors.ts",   FHEVM_ERRORS)?;
-        self.write_file("lib/fhevm/encrypt.ts",  FHEVM_ENCRYPT)?;
-        self.write_file("lib/fhevm/decrypt.ts",  FHEVM_DECRYPT)?;
-        self.write_file("lib/fhevm/index.ts",    FHEVM_INDEX)?;
-        // hooks/ (React-agnostic, ethers-signer variants for agents/scripts)
-        self.write_file("hooks/useEncrypt.ts",   HOOK_ENCRYPT)?;
-        self.write_file("hooks/useReencrypt.ts", HOOK_REENCRYPT)?;
+    fn write_sdk_files(&self) -> Result<()> {
+        self.write_file("sdk/package.json", &self.render_str(SDK_PACKAGE_JSON)?)?;
+        self.write_file("sdk/instance.ts",  FHEVM_INSTANCE)?;
+        self.write_file("sdk/config.ts",    FHEVM_CONFIG)?;
+        self.write_file("sdk/errors.ts",    FHEVM_ERRORS)?;
+        self.write_file("sdk/encrypt.ts",   FHEVM_ENCRYPT)?;
+        self.write_file("sdk/decrypt.ts",   FHEVM_DECRYPT)?;
+        self.write_file("sdk/index.ts",     FHEVM_INDEX)?;
+        self.write_file("sdk/gateway.ts",   FHEVM_GATEWAY)?;
+        self.write_file("sdk/FhevmProvider.tsx", FHEVM_PROVIDER)?;
+        self.write_file("sdk/hooks/useEncrypt.ts", HOOK_ENCRYPT)?;
+        self.write_file("sdk/hooks/useReencrypt.ts", HOOK_REENCRYPT)?;
+        Ok(())
+    }
+
+    fn write_agent_files(&self) -> Result<()> {
+        self.write_file("agent/package.json",   &self.render_str(AGENT_PACKAGE_JSON)?)?;
+        self.write_file("agent/fhevm-agent.ts", AGENT_TS)?;
         Ok(())
     }
 
@@ -97,17 +101,9 @@ impl Generator {
         self.write_file("frontend/app/contract.ts", contract)?;
         self.write_file("frontend/app/page.tsx",    page)?;
 
-        // Wagmi-compatible hooks (override the ethers-signer variants in hooks/)
+        // Wagmi-compatible hooks (specialized for frontend)
         self.write_file("frontend/hooks/useEncrypt.ts",   FRONTEND_HOOK_ENCRYPT)?;
         self.write_file("frontend/hooks/useReencrypt.ts", FRONTEND_HOOK_REENCRYPT)?;
-
-        // Shared lib/fhevm/ — same SDK files, self-contained inside frontend/
-        self.write_file("frontend/lib/fhevm/instance.ts", FHEVM_INSTANCE)?;
-        self.write_file("frontend/lib/fhevm/config.ts",   FHEVM_CONFIG)?;
-        self.write_file("frontend/lib/fhevm/errors.ts",   FHEVM_ERRORS)?;
-        self.write_file("frontend/lib/fhevm/encrypt.ts",  FHEVM_ENCRYPT)?;
-        self.write_file("frontend/lib/fhevm/decrypt.ts",  FHEVM_DECRYPT)?;
-        self.write_file("frontend/lib/fhevm/index.ts",    FHEVM_INDEX)?;
 
         Ok(())
     }
@@ -147,8 +143,10 @@ const FHEVM_FORGE_TOML: &str = include_str!("../../templates/shared/fhevm-forge.
 const ENV_EXAMPLE:      &str = include_str!("../../templates/shared/.env.example");
 const AGENT_MD:         &str = include_str!("../../templates/shared/AGENT.md");
 const README_MD:        &str = include_str!("../../templates/shared/README.md.tera");
-const PACKAGE_JSON:     &str = include_str!("../../templates/shared/package.json.tera");
-const TSCONFIG_JSON:    &str = include_str!("../../templates/shared/tsconfig.json");
+const PACKAGE_JSON:       &str = include_str!("../../templates/shared/package.json.tera");
+const SDK_PACKAGE_JSON:   &str = include_str!("../../templates/shared/sdk/package.json.tera");
+const AGENT_PACKAGE_JSON: &str = include_str!("../../templates/shared/agent/package.json.tera");
+const TSCONFIG_JSON:      &str = include_str!("../../templates/shared/tsconfig.json");
 
 // Shared lib/fhevm/ SDK
 const FHEVM_INSTANCE: &str = include_str!("../../templates/shared/lib/fhevm/instance.ts");
@@ -157,10 +155,13 @@ const FHEVM_ERRORS:   &str = include_str!("../../templates/shared/lib/fhevm/erro
 const FHEVM_ENCRYPT:  &str = include_str!("../../templates/shared/lib/fhevm/encrypt.ts");
 const FHEVM_DECRYPT:  &str = include_str!("../../templates/shared/lib/fhevm/decrypt.ts");
 const FHEVM_INDEX:    &str = include_str!("../../templates/shared/lib/fhevm/index.ts");
+const FHEVM_GATEWAY:  &str = include_str!("../../templates/shared/lib/fhevm/gateway.ts");
+const FHEVM_PROVIDER: &str = include_str!("../../templates/shared/lib/fhevm/FhevmProvider.tsx");
 
 // Shared hooks/ (ethers-signer variants for agents/scripts)
 const HOOK_ENCRYPT:   &str = include_str!("../../templates/shared/hooks/useEncrypt.ts");
 const HOOK_REENCRYPT: &str = include_str!("../../templates/shared/hooks/useReencrypt.ts");
+const AGENT_TS:       &str = include_str!("../../templates/shared/agent/fhevm-agent.ts");
 
 // Frontend scaffold — shared
 const FRONTEND_PACKAGE_JSON:  &str = include_str!("../../templates/frontend/package.json.tera");
@@ -181,35 +182,4 @@ const FRONTEND_PAGE_BLANK:     &str = include_str!("../../templates/frontend/app
 const BLANK_FILES: &[(&str, &str)] = &[
     ("src/Counter.sol",    include_str!("../../templates/blank/src/Counter.sol")),
     ("test/Counter.t.sol", include_str!("../../templates/blank/test/Counter.t.sol")),
-];
-
-// Template: erc7984
-const ERC7984_FILES: &[(&str, &str)] = &[
-    ("src/ConfidentialToken.sol",    include_str!("../../templates/erc7984/src/ConfidentialToken.sol")),
-    ("test/ConfidentialToken.t.sol", include_str!("../../templates/erc7984/test/ConfidentialToken.t.sol")),
-    ("script/Deploy.s.sol",          include_str!("../../templates/erc7984/script/Deploy.s.sol")),
-];
-
-// Template: lending
-const LENDING_FILES: &[(&str, &str)] = &[
-    ("src/ConfidentialVault.sol",             include_str!("../../templates/lending/src/ConfidentialVault.sol")),
-    ("src/tokens/ConfidentialCollateral.sol", include_str!("../../templates/lending/src/tokens/ConfidentialCollateral.sol")),
-    ("src/tokens/ConfidentialDebt.sol",       include_str!("../../templates/lending/src/tokens/ConfidentialDebt.sol")),
-    ("src/PriceOracle.sol",                   include_str!("../../templates/lending/src/PriceOracle.sol")),
-    ("test/ConfidentialVault.t.sol",          include_str!("../../templates/lending/test/ConfidentialVault.t.sol")),
-    ("script/Deploy.s.sol",                   include_str!("../../templates/lending/script/Deploy.s.sol")),
-];
-
-// Template: auction
-const AUCTION_FILES: &[(&str, &str)] = &[
-    ("src/BlindAuction.sol",    include_str!("../../templates/auction/src/BlindAuction.sol")),
-    ("test/BlindAuction.t.sol", include_str!("../../templates/auction/test/BlindAuction.t.sol")),
-    ("script/Deploy.s.sol",     include_str!("../../templates/auction/script/Deploy.s.sol")),
-];
-
-// Template: voting
-const VOTING_FILES: &[(&str, &str)] = &[
-    ("src/ConfidentialVoting.sol",    include_str!("../../templates/voting/src/ConfidentialVoting.sol")),
-    ("test/ConfidentialVoting.t.sol", include_str!("../../templates/voting/test/ConfidentialVoting.t.sol")),
-    ("script/Deploy.s.sol",           include_str!("../../templates/voting/script/Deploy.s.sol")),
 ];

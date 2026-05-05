@@ -3,8 +3,7 @@ import { useState }                                             from "react";
 import { useAccount, useConnect, useDisconnect,
          useWriteContract, useReadContract }                    from "wagmi";
 import { injected }                                             from "wagmi/connectors";
-import { useEncrypt }                                           from "@/hooks/useEncrypt";
-import { useReencrypt }                                         from "@/hooks/useReencrypt";
+import { useFhevm, useEncrypt, useReencrypt }                   from "@fhevm/sdk";
 import { CONTRACT_ADDRESS, COUNTER_ABI }                        from "./contract";
 
 export default function Page() {
@@ -12,6 +11,8 @@ export default function Page() {
   const { connect }                        = useConnect();
   const { disconnect }                     = useDisconnect();
   const { writeContractAsync, isPending }  = useWriteContract();
+
+  const { loading: fheLoading, error: fheError } = useFhevm();
 
   const { encrypt, encrypting, error: encryptError } =
     useEncrypt(CONTRACT_ADDRESS);
@@ -72,6 +73,25 @@ export default function Page() {
   async function handleReveal() {
     if (!handle) return;
     await reveal([BigInt(handle as string)]);
+  }
+
+  if (fheLoading) {
+    return (
+      <main>
+        <h1>Initializing FHEVM…</h1>
+        <p>Loading WebAssembly modules and secure context.</p>
+      </main>
+    );
+  }
+
+  if (fheError) {
+    return (
+      <main>
+        <h1>FHEVM Error</h1>
+        <p className="error">{fheError}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </main>
+    );
   }
 
   if (!isConnected) {

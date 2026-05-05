@@ -5,7 +5,7 @@ import {
   publicDecrypt,
   resolveHealthCheck, resolveAuctionBid,
   type ChainKey
-} from "fhevm-forge-sdk";
+} from "@fhevm/sdk";
 
 /**
  * Headless FHEVM runtime for autonomous agents.

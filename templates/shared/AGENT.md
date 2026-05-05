@@ -9,10 +9,12 @@
 ## What This Project Is
 
 A confidential smart contract application built on Zama FHEVM (Fully Homomorphic
-Encryption Virtual Machine). Contracts are written in Solidity using TFHE encrypted
-types. The frontend and agents use `@zama-fhe/relayer-sdk` (via the local helpers
-in `lib/fhevm/`) to encrypt inputs and decrypt outputs without dealing with the
-Gateway chain directly.
+Encryption Virtual Machine). This project is structured as an **npm monorepo**:
+
+- **`sdk/`**: Shared FHE SDK (@fhevm/sdk) with WASM initialization and hooks.
+- **`agent/`**: Headless agent runtime for background tasks.
+- **`frontend/`**: Next.js 15 app for user-facing interactions.
+- **`src/`**: Solidity contracts.
 
 ---
 
@@ -30,7 +32,7 @@ FHEVM has a two-chain architecture under the hood:
 - Runs the KMS (Key Management Service) via threshold MPC
 - Developers NEVER interact with this directly
 
-**The `lib/fhevm/` helpers** wrap `@zama-fhe/relayer-sdk` and abstract the Gateway
+**The `@fhevm/sdk` workspace** wraps `@zama-fhe/relayer-sdk` and abstract the Gateway
 chain entirely. Your code only ever needs a wallet on the host chain.
 
 ---
@@ -38,16 +40,16 @@ chain entirely. Your code only ever needs a wallet on the host chain.
 ## File Map
 
 ```
-lib/fhevm/
+sdk/
   instance.ts     Singleton SDK instance, environment-aware initialization
   encrypt.ts      All encryption flows (uint8 → uint256, bool, address, batch)
   decrypt.ts      publicDecrypt (contract-initiated) + reencrypt (user-initiated)
-  gateway.ts      Callback polling + resolver helpers (resolveHealthCheck, etc.)
   errors.ts       FHE error types with actionable messages
   config.ts       Chain address registry (Sepolia, mainnet, Base, Arbitrum)
   index.ts        Re-exports everything — import from here in app code
 
-lib/hooks/
+sdk/hooks/        Shared React hooks (React-agnostic core logic)
+frontend/hooks/   Wagmi-optimized hooks for Next.js
   useEncrypt.ts        React hook: encrypt inputs before submitting transactions
   useReencrypt.ts      React hook: reveal own encrypted values with wallet signature
   useHealthCheck.ts    React hook: full health check lifecycle (request → resolve)
@@ -245,16 +247,37 @@ const [collateral, debt] = await reencryptBatch(
 
 ---
 
-## React Hooks
+## Frontend Development (Next.js + Wagmi)
 
-```typescript
-import { useEncrypt, useReencrypt, useHealthCheck } from "@/lib/hooks";
-```
+The `frontend/` directory contains a Next.js 15 App Router project optimized for FHEVM.
+
+### 1. Key Components
+- `frontend/app/providers.tsx`: Configures `FhevmProvider` for WASM initialization.
+- `frontend/app/page.tsx`: Main UI logic using Wagmi hooks.
+- `frontend/app/contract.ts`: Contract ABI and deployment address.
+- `frontend/hooks/`: Wagmi-compatible versions of `useEncrypt` and `useReencrypt`.
+
+### 2. Development Workflow
+1. **Deploy Contract**: Run `fhevm-forge deploy` and copy the address.
+2. **Update ABI**: If you changed the `.sol` file, copy the new ABI from `out/` to `frontend/app/contract.ts`.
+3. **Run Dev Server**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+### 3. Using FHE Hooks
+- `useEncrypt`: Encrypts `uint8` through `uint256` client-side. Returns `{ handles, inputProof }`.
+- `useReencrypt`: Requests a wallet signature (EIP-712) to decrypt own values locally.
 
 ---
 
 ## Agent Runtime (No Browser Required)
 
+Agents are headless scripts that can interact with FHE contracts using a private key.
+
+### 1. Agent Initialization
 ```typescript
 import { FhevmAgent } from "./agent/fhevm-agent";
 
@@ -263,14 +286,15 @@ const agent = new FhevmAgent(
   process.env.AGENT_PRIVATE_KEY!,
   "sepolia"
 );
+```
 
-const { handle, inputProof } = await agent.encryptUint64(
-  currentAuctionPrice,
-  auctionContract.address
-);
-await auctionContract.connect(agent.wallet).submitBid(handle, inputProof);
+### 2. Encryption for Agents
+Agents use `agent.encryptUint64()` which performs encryption locally without a provider, making them suitable for background tasks.
 
-const { isUndercollateralized } = await agent.resolveHealthCheck(vault, borrower);
+### 3. Monitoring Loops
+Use `agent:monitor` script to run long-running tasks:
+```bash
+npm run agent:monitor
 ```
 
 ---
@@ -363,8 +387,8 @@ Run `fhevm-forge gas` for a per-operation breakdown of your contracts.
 
 ```bash
 forge test
-forge test --match-test test_borrow_opens_position -vvv
-pnpm typecheck
+forge test --match-test test_increment -vvv
+npm run typecheck
 fhevm-forge gas
 fhevm-forge lint ./src/
 ```
@@ -375,9 +399,9 @@ fhevm-forge lint ./src/
 
 ```bash
 cp .env.example .env
-fhevm-forge deploy --chains sepolia --contract ConfidentialVault
-fhevm-forge deploy --chains sepolia,base --contract ConfidentialVault
-fhevm-forge deploy --chains sepolia --contract ConfidentialVault --dry-run
+fhevm-forge deploy --chains sepolia --contract Counter
+fhevm-forge deploy --chains sepolia,base --contract Counter
+fhevm-forge deploy --chains sepolia --contract Counter --dry-run
 ```
 
 ---

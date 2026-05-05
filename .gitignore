@@ -23,7 +23,7 @@ Thumbs.db
 # Local dev sandboxes (scaffolded projects, SDK dir)
 
 my-protocol/
-my-project/
+
 my/
 fhevm-forge-sdk/
 

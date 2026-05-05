@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { reencryptBatch }        from "../lib/fhevm/decrypt";
-import type { ChainKey }         from "../lib/fhevm/config";
+import { reencryptBatch }        from "../decrypt";
+import type { ChainKey }         from "../config";
 
 export function useReencrypt(
   contractAddress: string,

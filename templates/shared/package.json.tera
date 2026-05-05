@@ -2,14 +2,15 @@
   "name": "{{ project_name }}",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "workspaces": [
+    "sdk",
+    "agent",
+    "frontend"
+  ],
   "scripts": {
-    "typecheck":     "tsc --noEmit",
-    "agent:monitor": "tsx agent/fhevm-agent.ts"
-  },
-  "dependencies": {
-    "@zama-fhe/relayer-sdk": "^{{ relayer_sdk_version }}",
-    "ethers": "^6.0.0"
+    "typecheck": "npm run typecheck -ws",
+    "build":     "npm run build -ws",
+    "agent":     "npm run start -w agent"
   },
   "devDependencies": {
     "typescript":  "^5.0.0",

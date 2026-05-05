@@ -12,3 +12,8 @@ export {
   publicDecrypt, reencrypt, reencryptBatch,
   type PublicDecryptResult,
 }                                               from "./decrypt";
+export *                                        from "./gateway";
+
+export { FhevmProvider, useFhevm }               from "./FhevmProvider";
+export { useEncrypt }                           from "./hooks/useEncrypt";
+export { useReencrypt }                         from "./hooks/useReencrypt";

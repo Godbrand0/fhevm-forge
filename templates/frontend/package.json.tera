@@ -1,5 +1,5 @@
 {
-  "name": "{{ project_name }}-frontend",
+  "name": "@fhevm/frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,13 +9,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@zama-fhe/relayer-sdk": "^{{ relayer_sdk_version }}",
-    "ethers":                "^6.0.0",
-    "next":                  "^15.0.0",
-    "react":                 "^19.0.0",
-    "react-dom":             "^19.0.0",
-    "wagmi":                 "^2.0.0",
-    "viem":                  "^2.0.0",
+    "@fhevm/sdk": "workspace:*",
+    "next":       "^15.0.0",
+    "react":      "^19.0.0",
+    "react-dom":  "^19.0.0",
+    "wagmi":      "^2.0.0",
+    "viem":       "^2.0.0",
     "@tanstack/react-query": "^5.0.0"
   },
   "devDependencies": {

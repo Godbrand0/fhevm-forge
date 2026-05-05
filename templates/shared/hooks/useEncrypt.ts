@@ -1,6 +1,6 @@
 import { useState, useCallback }               from "react";
-import { encryptValue, type EncryptedInput }   from "../lib/fhevm/encrypt";
-import type { ChainKey }                       from "../lib/fhevm/config";
+import { encryptValue, type EncryptedInput }   from "../encrypt";
+import type { ChainKey }                       from "../config";
 
 export function useEncrypt(contractAddress: string, userAddress: string, chain?: ChainKey) {
   const [encrypting, setEncrypting] = useState(false);
