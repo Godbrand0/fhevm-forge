@@ -7,7 +7,7 @@
     "start": "tsx fhevm-agent.ts"
   },
   "dependencies": {
-    "@fhevm/sdk": "workspace:*",
+    "@fhevm/sdk": "*",
     "ethers": "^6.0.0",
     "dotenv": "^16.0.0"
   }

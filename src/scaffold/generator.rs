@@ -53,6 +53,7 @@ impl Generator {
         self.write_file("README.md",        &self.render_str(README_MD)?)?;
         self.write_file("package.json",     &self.render_str(PACKAGE_JSON)?)?;
         self.write_file("tsconfig.json",    TSCONFIG_JSON)?;
+        self.write_file(".gitignore",       GITIGNORE)?;
         Ok(())
     }
 
@@ -147,6 +148,7 @@ const PACKAGE_JSON:       &str = include_str!("../../templates/shared/package.js
 const SDK_PACKAGE_JSON:   &str = include_str!("../../templates/shared/sdk/package.json.tera");
 const AGENT_PACKAGE_JSON: &str = include_str!("../../templates/shared/agent/package.json.tera");
 const TSCONFIG_JSON:      &str = include_str!("../../templates/shared/tsconfig.json");
+const GITIGNORE:          &str = include_str!("../../templates/shared/.gitignore");
 
 // Shared lib/fhevm/ SDK
 const FHEVM_INSTANCE: &str = include_str!("../../templates/shared/lib/fhevm/instance.ts");
