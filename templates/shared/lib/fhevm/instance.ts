@@ -1,4 +1,4 @@
-import { createInstance, FhevmInstance } from "@zama-fhe/relayer-sdk";
+import { createInstance, FhevmInstance } from "@zama-fhe/relayer-sdk/node";
 import { CHAIN_CONFIGS, type ChainKey } from "./config";
 
 let _instance: FhevmInstance | null = null;

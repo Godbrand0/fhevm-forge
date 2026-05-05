@@ -80,22 +80,37 @@ pub async fn run(name: &str, template_flag: Option<&str>, frontend: bool) -> Res
     // The two chains share no files, so they're fully independent.
     pb.set_message("Installing dependencies (forge + npm in parallel)...");
     let name_clone = name.to_string();
+    let pb_clone = pb.clone();
     let forge_chain = async {
+        pb_clone.set_message("Installing forge-fhevm (shallow clone)...");
         forge_install(&name_clone, FORGE_FHEVM_DEP).await
             .context("forge install zama-ai/forge-fhevm failed")?;
-        // Remove the @openzeppelin-confidential-contracts git dep from forge-fhevm's
-        // foundry.toml before soldeer runs. That package is a full repo clone (~198 MB)
-        // used only for two interface files, which we stub locally instead.
+
+        pb_clone.set_message("Patching FHEVM dependencies...");
         patch_forge_fhevm_foundry_toml(&name_clone)
             .context("failed to patch lib/forge-fhevm/foundry.toml")?;
         create_oz_confidential_stubs(&name_clone)
             .context("failed to write OZ confidential interface stubs")?;
-        download_fhevm_solidity(&name_clone).await
-            .context("failed to download @fhevm-solidity")?;
-        soldeer_install(&name_clone).await
-            .context("forge soldeer install (inside lib/forge-fhevm) failed")
+
+        // download_fhevm_solidity (S3) and soldeer_install (soldeer registry)
+        // write to different subdirs of lib/forge-fhevm/dependencies/ — no conflict.
+        pb_clone.set_message("Downloading @fhevm-solidity + soldeer deps in parallel...");
+        let name_c2 = name_clone.clone();
+        tokio::try_join!(
+            async { download_fhevm_solidity(&name_clone).await
+                .context("failed to download @fhevm-solidity") },
+            async { soldeer_install(&name_c2).await
+                .context("forge soldeer install (inside lib/forge-fhevm) failed") },
+        ).map(|_| ())
     };
-    tokio::try_join!(forge_chain, npm_install(name))?;
+
+    let pb_clone_npm = pb.clone();
+    let npm_chain = async {
+        pb_clone_npm.set_message("Running npm install (fetching Next.js + FHEVM SDK)...");
+        npm_install(name).await
+    };
+
+    tokio::try_join!(forge_chain, npm_chain)?;
 
     pb.finish_and_clear();
 
@@ -293,7 +308,7 @@ async fn soldeer_install(project_dir: &str) -> Result<()> {
 
 async fn forge_install(project_dir: &str, dep: &str) -> Result<()> {
     let output = tokio::process::Command::new("forge")
-        .args(["install", dep, "--no-git"])
+        .args(["install", dep, "--no-git", "--shallow"])
         .current_dir(project_dir)
         .output()
         .await?;

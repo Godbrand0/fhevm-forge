@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { getFhevmInstance } from "./instance";
-import type { FhevmInstance } from "@zama-fhe/relayer-sdk";
+import type { FhevmInstance } from "@zama-fhe/relayer-sdk/node";
 import type { ChainKey } from "./config";
 
 interface FhevmContextType {
