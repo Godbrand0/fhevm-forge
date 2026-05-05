@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { getFhevmInstance } from "./instance";
 import type { FhevmInstance } from "@zama-fhe/relayer-sdk/node";
+import type { Eip1193Provider } from "ethers";
 import type { ChainKey } from "./config";
 
 interface FhevmContextType {
@@ -28,8 +29,8 @@ export function FhevmProvider({
   provider,
 }: {
   children: React.ReactNode;
-  chain?:   ChainKey;
-  provider?: unknown;
+  chain?:    ChainKey;
+  provider?: string | Eip1193Provider;
 }) {
   const [instance, setInstance] = useState<FhevmInstance | null>(null);
   const [loading,  setLoading]  = useState(true);

@@ -3,7 +3,9 @@ import { useState }                                             from "react";
 import { useAccount, useConnect, useDisconnect,
          useWriteContract, useReadContract }                    from "wagmi";
 import { injected }                                             from "wagmi/connectors";
-import { useFhevm, useEncrypt, useReencrypt }                   from "@fhevm/sdk";
+import { useFhevm }                                              from "@fhevm/sdk";
+import { useEncrypt }                                            from "../hooks/useEncrypt";
+import { useReencrypt }                                          from "../hooks/useReencrypt";
 import { CONTRACT_ADDRESS, COUNTER_ABI }                        from "./contract";
 
 export default function Page() {

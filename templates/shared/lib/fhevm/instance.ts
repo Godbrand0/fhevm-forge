@@ -1,4 +1,5 @@
-import { createInstance, FhevmInstance } from "@zama-fhe/relayer-sdk/node";
+import { createInstance, FhevmInstance } from "@zama-fhe/relayer-sdk/web";
+import type { Eip1193Provider }          from "ethers";
 import { CHAIN_CONFIGS, type ChainKey } from "./config";
 
 let _instance: FhevmInstance | null = null;
@@ -20,8 +21,8 @@ function detectEnvironment(): Environment {
  * @param provider Optional ethers/viem provider (required in browser for wallet ops)
  */
 export async function getFhevmInstance(
-  chain: ChainKey = "sepolia",
-  provider?: unknown
+  chain:     ChainKey = "sepolia",
+  provider?: string | Eip1193Provider
 ): Promise<FhevmInstance> {
   if (_instance && _currentChain === chain) return _instance;
 

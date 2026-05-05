@@ -9,8 +9,8 @@ import type { ChainKey } from "./config";
 //
 // CRITICAL (FHEVM-009): The resolver contract function requires 3 arguments:
 //   1. The identifying key (e.g. borrower address, auctionId)
-//   2. result.abiEncodedClearValues  (from publicDecrypt)
-//   3. result.decryptionProof        (from publicDecrypt)
+//   2. The ABI-encoded clear values
+//   3. The decryption proof
 //
 // Passing only 1 arg (the key) will revert silently. Always pass all 3.
 
@@ -55,13 +55,8 @@ export async function pollForEvent(
  * Full health check resolve flow — 3-step pattern.
  *
  * Step 1: Get the pending health handle via getPendingHealthHandle()
- *         (NOT via getPositionHandles()[2] — only 2 values returned there)
  * Step 2: Call publicDecrypt() via Relayer SDK
- * Step 3: Call resolveHealthCheck(borrower, abiEncoded, proof) — 3 args, not 1
- *
- * @param vault    ethers Contract instance
- * @param borrower Address of the borrower position to resolve
- * @param signer   Wallet signer for submitting the resolve transaction
+ * Step 3: Call resolveHealthCheck(borrower, clearValue) on-chain
  */
 export async function resolveHealthCheck(
   vault:    { getPendingHealthHandle: Function; resolveHealthCheck: Function; connect: Function },
@@ -69,7 +64,6 @@ export async function resolveHealthCheck(
   signer:   unknown,
   chain:    ChainKey = "sepolia"
 ): Promise<{ isUndercollateralized: boolean }> {
-  // Step 1: Get pending handle — use dedicated getter, not getPositionHandles()
   const handle: bigint = await vault.getPendingHealthHandle(borrower);
   if (handle === 0n) {
     throw new FhevmError(
@@ -78,16 +72,11 @@ export async function resolveHealthCheck(
     );
   }
 
-  // Step 2: Public decrypt (convert bigint handle to hex string)
-  const handleHex = "0x" + handle.toString(16);
-  const { abiEncodedClearValues, decryptionProof, clearValues } =
-    await publicDecrypt([handleHex], chain);
+  const { clearValues } = await publicDecrypt([handle], chain);
 
-  // Step 3: Resolve with 3 args (FHEVM-009 prevention)
   const tx = await (vault.connect(signer) as typeof vault).resolveHealthCheck(
     borrower,
-    abiEncodedClearValues,
-    decryptionProof
+    clearValues[0]
   );
   await (tx as { wait: Function }).wait();
 
@@ -110,15 +99,12 @@ export async function resolveAuctionBid(
     throw new FhevmError(`No pending bid for ${bidder} on auction ${auctionId}`);
   }
 
-  const handleHex = "0x" + handle.toString(16);
-  const { abiEncodedClearValues, decryptionProof, clearValues } =
-    await publicDecrypt([handleHex], chain);
+  const { clearValues } = await publicDecrypt([handle], chain);
 
   const tx = await (auction.connect(signer) as typeof auction).resolveBid(
     auctionId,
     bidder,
-    abiEncodedClearValues,
-    decryptionProof
+    clearValues[0]
   );
   await (tx as { wait: Function }).wait();
 
