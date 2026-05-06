@@ -49,7 +49,7 @@ impl Generator {
         self.write_file("foundry.toml",     &self.render_str(FOUNDRY_TOML)?)?;
         self.write_file("fhevm-forge.toml", FHEVM_FORGE_TOML)?;
         self.write_file(".env.example",     ENV_EXAMPLE)?;
-        self.write_file("AGENT.md",         AGENT_MD)?;
+        self.write_file("AGENT.md",         &self.render_str(AGENT_MD)?)?;
         self.write_file("README.md",        &self.render_str(README_MD)?)?;
         self.write_file("package.json",     &self.render_str(PACKAGE_JSON)?)?;
         self.write_file("tsconfig.json",    TSCONFIG_JSON)?;
@@ -142,7 +142,7 @@ impl Generator {
 const FOUNDRY_TOML:     &str = include_str!("../../templates/shared/foundry.toml.tera");
 const FHEVM_FORGE_TOML: &str = include_str!("../../templates/shared/fhevm-forge.toml");
 const ENV_EXAMPLE:      &str = include_str!("../../templates/shared/.env.example");
-const AGENT_MD:         &str = include_str!("../../templates/shared/AGENT.md");
+const AGENT_MD:         &str = include_str!("../../templates/shared/AGENT.md.tera");
 const README_MD:        &str = include_str!("../../templates/shared/README.md.tera");
 const PACKAGE_JSON:       &str = include_str!("../../templates/shared/package.json.tera");
 const SDK_PACKAGE_JSON:   &str = include_str!("../../templates/shared/sdk/package.json.tera");

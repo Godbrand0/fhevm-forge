@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import webpack from "webpack";
 
 const nextConfig: NextConfig = {
   webpack(config, { isServer }) {
@@ -19,7 +20,16 @@ const nextConfig: NextConfig = {
         fs: false,
         path: false,
         crypto: false,
+        // MetaMask SDK ships a React Native dep that doesn't exist in browsers.
+        "@react-native-async-storage/async-storage": false,
+        // WalletConnect's pino logger optionally imports pino-pretty.
+        "pino-pretty": false,
       };
+
+      // @zama-fhe/relayer-sdk references the Node.js `global` at module init.
+      config.plugins.push(
+        new webpack.DefinePlugin({ global: "globalThis" })
+      );
     }
 
     return config;
