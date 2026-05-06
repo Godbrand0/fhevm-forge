@@ -1,6 +1,6 @@
 [package]
 name        = "fhevm-forge"
-version     = "0.3.3"
+version     = "0.3.4"
 edition     = "2021"
 description = "High-performance FHE development framework. Relayer-native scaffolding, deployment, and security linting for Zama FHEVM."
 license     = "MIT"
