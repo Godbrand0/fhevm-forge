@@ -41,7 +41,7 @@ foundryup
 ## Quickstart
 
 ```bash
-# Scaffold a confidential lending vault
+# Scaffold a confidential lending vault (contracts + TypeScript SDK)
 fhevm-forge init my-vault --template lending
 cd my-vault
 
@@ -59,6 +59,24 @@ cp .env.example .env   # fill in RPC URL and private key
 fhevm-forge deploy --chains sepolia --contract ConfidentialVault
 ```
 
+### With frontend (Next.js)
+
+```bash
+# Scaffold with a full Next.js 15 frontend
+fhevm-forge init my-vault --template lending --frontend
+cd my-vault
+
+# Start the dev server after deploying
+fhevm-forge deploy --chains sepolia --contract ConfidentialVault
+cd frontend && npm run dev
+```
+
+The `--frontend` flag adds a `frontend/` Next.js 15 app with:
+- Wagmi + WalletConnect wallet connection
+- `useEncrypt` hook — client-side encryption before submitting transactions
+- `useReencrypt` hook — EIP-712 wallet signature to reveal your own encrypted values
+- `FhevmProvider` for WASM initialization
+
 ---
 
 ## Templates
@@ -75,6 +93,9 @@ fhevm-forge deploy --chains sepolia --contract ConfidentialVault
 fhevm-forge init my-project --template <name>
 # or omit --template for an interactive selector
 fhevm-forge init my-project
+
+# Add --frontend to include a Next.js 15 frontend
+fhevm-forge init my-project --template <name> --frontend
 ```
 
 ---
@@ -91,11 +112,30 @@ my-project/
 ├── lib/
 │   ├── forge-std/              Foundry standard library
 │   └── forge-fhevm/            Zama FHE mock for local testing
+├── sdk/                        Shared @fhevm/sdk (WASM init, encrypt, decrypt, hooks)
+├── agent/                      Headless agent runtime (no browser/MetaMask required)
 ├── AGENT.md                    FHEVM development guide for AI coding agents
 ├── foundry.toml
 ├── fhevm-forge.toml
-├── package.json                fhevm-forge-sdk + ethers
+├── package.json
 └── tsconfig.json
+```
+
+With `--frontend`, a `frontend/` directory is also generated:
+
+```
+my-project/
+└── frontend/
+    ├── app/
+    │   ├── page.tsx            Main UI (wallet connect, encrypt, reencrypt)
+    │   ├── providers.tsx       FhevmProvider + Wagmi setup
+    │   ├── contract.ts         ABI and deployed address
+    │   └── layout.tsx
+    ├── hooks/
+    │   ├── useEncrypt.ts       Client-side encryption hook
+    │   └── useReencrypt.ts     EIP-712 reencryption hook
+    ├── next.config.ts          Webpack config for WASM + WalletConnect
+    └── package.json
 ```
 
 ---
