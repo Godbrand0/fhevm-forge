@@ -455,6 +455,32 @@ Each chain entry includes the contract address, transaction hash, and explorer U
 | `ACL not authorized` | Address not in TFHE permission set | Call `TFHE.allow(handle, address)` in contract before reading |
 | Tests fail locally but pass on Sepolia | `evm_version` not `cancun` | Set `evm_version = "cancun"` in `foundry.toml` |
 | Gateway timeout in tests | Tests using real Gateway | Use `forge test` with `FHEVMTestBase` — no real Gateway needed |
+| `SenderNotAllowedToUseHandle` on `fromExternal` | Wrong `InputVerifierAddress`, `relayerUrl`, or `gatewayChainId` — proof bound to wrong contract | Use the three correct Sepolia values from the **Sepolia Configuration** section above |
+
+---
+
+## Sepolia Configuration — Correct Values
+
+These three values must match exactly. The wrong `InputVerifierAddress` is the most
+dangerous mismatch: the SDK generates a proof bound to that address, so on-chain
+verification rejects it with `SenderNotAllowedToUseHandle`.
+
+| Parameter | Correct value |
+|-----------|---------------|
+| `InputVerifierAddress` | `0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0` |
+| `relayerUrl` | `relayer.testnet.zama.org` |
+| `gatewayChainId` | `10901` |
+
+If you initialise the SDK manually use these values — do not derive them from `chainId`:
+
+```typescript
+const instance = await createInstance({
+  networkUrl:           process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL,
+  relayerUrl:           "https://relayer.testnet.zama.org",
+  inputVerifierAddress: "0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0",
+  gatewayChainId:       10901,
+});
+```
 
 ---
 
